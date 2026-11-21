@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SnipRiot · Control Centre</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%23ff2e93%22/%3E%3Ctext x=%2216%22 y=%2222%22 font-size=%2215%22 font-family=%22Arial%22 font-weight=%22bold%22 fill=%22white%22 text-anchor=%22middle%22%3ESR%3C/text%3E%3C/svg%3E">
+<style>
+:root{--bg:#0d0a1a;--panel:#161127;--panel2:#1e1735;--line:#2c2348;--text:#ece9f6;--muted:#9a93b5;--pink:#ff2e93;--cyan:#00e5ff;
+--green:#22c55e;--amber:#f59e0b;--red:#ef4444;--radius:14px;--font:"Segoe UI",system-ui,-apple-system,sans-serif}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 var(--font)}
+a{color:var(--cyan);text-decoration:none}button,input,select,textarea{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:232px 1fr;height:100vh}
+aside{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:18px 12px}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 10px 18px}.logo{width:36px;height:36px;border-radius:10px;
+background:linear-gradient(135deg,var(--pink),#7c3aed);display:grid;place-items:center;font-weight:800;letter-spacing:-1px}
+.brand b{font-size:16px}.brand small{display:block;color:var(--muted);font-size:11px}
+nav a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;color:var(--muted);margin:2px 0;font-weight:500}
+nav a:hover{background:var(--panel2);color:var(--text)}nav a.on{background:var(--panel2);color:var(--text);box-shadow:inset 3px 0 0 var(--pink)}
+nav .ico{width:18px;text-align:center}.side-foot{margin-top:auto;padding:10px 12px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);margin-right:6px;vertical-align:1px}
+.dot.ok{background:var(--green);box-shadow:0 0 8px var(--green)}.dot.warn{background:var(--amber)}.dot.bad{background:var(--red)}
+main{overflow:auto;padding:26px 30px 60px}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px}
+h1{font-size:22px;margin:0}.sub{color:var(--muted);margin-top:3px}
+.grid{display:grid;gap:14px}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:1fr 1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.card h3{margin:0 0 10px;font-size:14px;color:var(--muted);font-weight:600;letter-spacing:.2px}
+.kpi{font-size:26px;font-weight:700}.kpi small{font-size:13px;color:var(--muted);font-weight:500;margin-left:4px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.sp{flex:1}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-size:12px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+.pill.live{color:#fff;background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.5)}.pill.live:before{content:"";width:7px;height:7px;border-radius:50%;background:var(--red);animation:blink 1.2s infinite}
+.pill.good{color:var(--green);border-color:rgba(34,197,94,.4)}.pill.warn{color:var(--amber);border-color:rgba(245,158,11,.4)}.pill.bad{color:var(--red);border-color:rgba(239,68,68,.4)}
+@keyframes blink{50%{opacity:.25}}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:7px 13px;cursor:pointer;font-weight:600}
+.btn:hover{border-color:#4a3d77}.btn.primary{background:var(--pink);border-color:var(--pink);color:#fff}.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent}.btn.danger{color:var(--red)}.btn.sm{padding:4px 10px;font-size:12px}.btn:disabled{opacity:.5;cursor:default}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:7px 10px;outline:none;min-width:0}
+input:focus,select:focus,textarea:focus{border-color:var(--cyan)}
+input[type=number]{-moz-appearance:textfield;appearance:textfield}
+input[type=checkbox],input[type=radio]{accent-color:var(--pink);width:16px;height:16px;vertical-align:-3px;margin-right:6px;cursor:pointer}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+select{appearance:none;-webkit-appearance:none;padding-right:34px;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%239a93b5' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+select option{background:var(--panel);color:var(--text)}
+.num{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:9px;background:var(--bg);overflow:hidden}
+.num:focus-within{border-color:var(--cyan)}.num input{border:0;border-radius:0;flex:1;text-align:center;background:transparent;font-weight:600}
+.num .st{width:38px;border:0;background:var(--panel2);color:var(--muted);font-size:17px;line-height:1;cursor:pointer;transition:.15s}
+.num .st:hover{color:#fff;background:#2a2050}.num .st:active{background:var(--pink);color:#fff}
+.num .st:first-child{border-right:1px solid var(--line)}.num .st:last-child{border-left:1px solid var(--line)}
+.seg-pick{display:flex;gap:6px;flex-wrap:wrap}.seg-pick label{margin:0}.seg-pick input{display:none}
+.seg-pick span{display:inline-block;padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--muted);cursor:pointer;font-weight:600;min-width:52px;text-align:center}
+.seg-pick input:checked+span{border-color:var(--pink);background:rgba(255,46,147,.14);color:#fff}.seg-pick span:hover{border-color:#4a3d77}label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.field{margin-bottom:12px}.help{font-size:12px;color:var(--muted);margin-top:3px}
+.tl{position:relative;height:30px;background:#2a1520;border-radius:8px;overflow:hidden;margin:10px 0 4px}
+.tl .seg{position:absolute;top:0;bottom:0;background:linear-gradient(180deg,#25d07b,#16a35c)}
+.tl .disk{position:absolute;bottom:0;height:4px;background:var(--cyan)}
+.tl .gap{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg,rgba(239,68,68,.55),rgba(239,68,68,.55) 5px,rgba(120,20,30,.5) 5px,rgba(120,20,30,.5) 10px)}
+.tl .wait{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg,rgba(245,158,11,.45),rgba(245,158,11,.45) 5px,rgba(90,60,10,.4) 5px,rgba(90,60,10,.4) 10px)}
+.tl .rec{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(-45deg,#2fe08a 0 8px,#1aa865 8px 16px);background-size:22.6px 22.6px;animation:slide 1.2s linear infinite;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.tl .rec b{font-size:10px;letter-spacing:.6px;color:#062b17;background:rgba(255,255,255,.75);border-radius:5px;padding:1px 6px;white-space:nowrap}
+@keyframes slide{to{background-position:22.6px 0}}
+.tl .now{position:absolute;top:0;bottom:0;width:3px;background:#fff;animation:blink 1.2s infinite}
+.scale{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:8px}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.blocks{display:flex;gap:4px;flex-wrap:wrap;margin-top:10px}.blk{font-size:11px;padding:3px 7px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+.blk.clipped,.blk.complete{color:var(--green)}.blk.partial,.blk.waiting_backfill{color:var(--amber)}.blk.missing{color:var(--red)}.blk.recording{color:var(--cyan)}
+.clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,230px));gap:12px}
+.clip{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.thumb{position:relative;aspect-ratio:9/16;background:#000;cursor:pointer}.thumb img,.thumb video{width:100%;height:100%;object-fit:cover;display:block}
+.thumb.wide{aspect-ratio:16/9}.thumb .badge{position:absolute;top:8px;left:8px}.thumb .score{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.65);border-radius:8px;padding:1px 7px;font-size:12px;font-weight:700}
+.clip .meta{padding:10px 11px;display:flex;flex-direction:column;gap:6px;flex:1}.clip .t{font-weight:600;font-size:13px}
+.clip .acts{display:flex;gap:6px;margin-top:auto}
+.clip .t.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.3;min-height:2.6em}
+.cm{font-size:11.5px;color:var(--muted)}
+.acts3{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:auto}.acts3 .btn{padding:6px 0;font-size:11.5px;white-space:nowrap;text-align:center}
+details.caps summary{cursor:pointer;font-size:12px;color:var(--muted);list-style:none}details.caps summary::before{content:"▸ "}details.caps[open] summary::before{content:"▾ "}
+.capb{margin-top:7px;font-size:11.5px}.capb .row{gap:4px}.capb .btn{padding:1px 8px;font-size:11px}.capt{white-space:pre-wrap;color:var(--muted);background:var(--panel2);border-radius:8px;padding:6px 8px;margin-top:3px;max-height:110px;overflow:auto}
+.tab .tc{font-weight:600;opacity:.7;margin-left:3px}
+.clip.focus{outline:3px solid var(--pink,#ff3d9a);outline-offset:2px}.kbd-help{margin-left:8px;color:var(--muted)}.kbd-help b{color:var(--text,#eee);background:rgba(255,255,255,.08);padding:1px 6px;border-radius:5px}
+.p8{display:grid;grid-template-columns:150px 1fr;gap:14px;align-items:start}.p8 video{width:150px;aspect-ratio:9/16;border-radius:10px;background:#000;object-fit:cover}
+.p8 .time{font-size:22px;font-weight:700}.chk{display:inline-flex;align-items:center;gap:6px;margin-right:14px}.done8{opacity:.55}
+.empty{color:var(--muted);text-align:center;padding:50px 10px;border:1px dashed var(--line);border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+th{color:var(--muted);font-weight:600;font-size:12px}.mono{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+.plat{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--line)}
+.plat.youtube{color:#ff5a5a;border-color:rgba(255,90,90,.4)}.plat.tiktok{color:#69f0e8;border-color:rgba(105,240,232,.4)}.plat.x{color:#e8e8e8;border-color:#555}
+.plat.instagram{color:#ff7ac8;border-color:rgba(255,122,200,.4)}.plat.threads{color:#cfcfcf;border-color:#555}
+.num-cell{text-align:right;font-variant-numeric:tabular-nums}.mini{width:44px;height:78px;object-fit:cover;border-radius:6px;background:#000;display:block}
+.lvl-ALERT{color:var(--red)}.lvl-WARN{color:var(--amber)}.lvl-ERROR{color:var(--red)}
+.toast{position:fixed;right:22px;bottom:22px;background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--cyan);padding:11px 15px;border-radius:10px;
+box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0;transform:translateY(10px);transition:.2s;pointer-events:none;max-width:380px}.toast.show{opacity:1;transform:none}
+.toast.err{border-left-color:var(--red)}
+.modal{position:fixed;inset:0;background:rgba(5,3,12,.75);display:none;place-items:center;z-index:9}.modal.show{display:grid}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;max-width:min(920px,94vw);max-height:92vh;overflow:auto;display:flex;gap:18px}
+.modal video{max-height:80vh;max-width:46vh;border-radius:10px;background:#000}
+.tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}.tab{padding:6px 12px;border-radius:999px;border:1px solid var(--line);cursor:pointer;color:var(--muted);background:var(--panel)}
+.tab.on{color:#fff;border-color:var(--pink);background:rgba(255,46,147,.12)}
+.hint{background:rgba(0,229,255,.07);border:1px solid rgba(0,229,255,.25);border-radius:12px;padding:10px 14px;color:#bfefff;margin-bottom:14px}
+.warnbox{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.35);color:#fde3b0;border-radius:12px;padding:10px 14px;margin-bottom:14px}
+
+/* ---- phone layout ---- */
+@media(max-width:760px){
+ .app{grid-template-columns:1fr;grid-template-rows:auto 1fr;height:100dvh}
+ aside{flex-direction:row;align-items:center;padding:6px 8px;border-right:0;border-bottom:1px solid var(--line);gap:6px;position:sticky;top:0;z-index:30}
+ .brand{padding:0 4px}.brand>div:last-child,.side-foot{display:none}.logo{width:30px;height:30px;border-radius:8px;font-size:12px}
+ nav{display:flex;overflow-x:auto;gap:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}nav::-webkit-scrollbar{display:none}
+ nav a{white-space:nowrap;padding:8px 10px;margin:0;font-size:13px}nav a.on{box-shadow:inset 0 -3px 0 var(--pink)}nav .ico{display:none}
+ main{padding:14px 12px 80px;overflow:auto}
+ .top{flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:14px}h1{font-size:19px}
+ .g4,.g3,.g2{grid-template-columns:1fr!important}
+ .clips{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px}
+ .row{flex-wrap:wrap}
+ table{display:block;overflow-x:auto;white-space:nowrap}
+ .card{padding:12px}
+ .tabs{overflow-x:auto;white-space:nowrap;flex-wrap:nowrap}
+ .p8{grid-template-columns:105px 1fr;gap:10px}.p8 video{width:105px}.p8 .time{font-size:18px}
+ .kbd-help{display:none}
+ .acts3 .btn{font-size:12px;padding:9px 0}
+ #modalBox{flex-direction:column;max-height:92vh;overflow:auto}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand"><div class="logo">SR</div><div><b>SnipRiot</b><small>Control Centre</small></div></div>
+    <nav id="nav">
+      <a href="#overview"><span class="ico">◉</span>Overview</a>
+      <a href="#streams"><span class="ico">▶</span>Streams</a>
+      <a href="#history"><span class="ico">⏱</span>History</a>
+      <a href="#clips"><span class="ico">▦</span>Clip library</a>
+      <a href="#today"><span class="ico">★</span>Today's 8</a>
+      <a href="#posts"><span class="ico">↗</span>Posts &amp; results</a>
+      <a href="#tools"><span class="ico">✂</span>Tools</a>
+      <a href="#activity"><span class="ico">≡</span>Activity</a>
+      <a href="#settings"><span class="ico">⚙</span>Settings</a>
+      <a href="#system"><span class="ico">⛭</span>System</a>
+    </nav>
+    <div class="side-foot"><div id="health"><span class="dot"></span>Connecting…</div><div id="disk" style="margin-top:4px"></div></div>
+  </aside>
+  <main id="view"></main>
+</div>
+<div class="toast" id="toast"></div>
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()"><div class="box" id="modalBox"></div></div>
+<script>
+const $=s=>document.querySelector(s), esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const hms=s=>{if(s==null)return"–";s=Math.max(0,Math.round(s));return`${s/3600|0}:${String((s%3600)/60|0).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`};
+const hm=s=>{if(s==null)return"–";s=Math.max(0,Math.round(s));return`${s/3600|0}h ${String((s%3600)/60|0).padStart(2,"0")}m`};
+const parseT=t=>String(t).trim().split(":").reduce((a,x)=>a*60+(+x||0),0);
+const ago=iso=>{if(!iso)return"–";const d=(Date.now()-Date.parse(iso))/1000;return d<90?`${Math.round(d)}s ago`:d<5400?`${Math.round(d/60)} min ago`:`${Math.round(d/3600)} h ago`};
+const media=p=>"/media/"+String(p||"").replace(/\\/g,"/").split("/").map(encodeURIComponent).join("/");
+async function api(path,body){const r=await fetch(path,body?{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}:{});const j=await r.json().catch(()=>({}));if(!r.ok||j.error)throw new Error(j.error||r.statusText);return j}
+function toast(msg,err){const t=$("#toast");t.textContent=msg;t.className="toast show"+(err?" err":"");clearTimeout(t._h);t._h=setTimeout(()=>t.className="toast",3200)}
+function closeModal(){$("#modal").classList.remove("show");$("#modalBox").innerHTML=""}
+let ST=null, timer=null;
+
+async function refreshHealth(){try{ST=await api("/api/status");const sys=await api("/api/system");
+  const age=sys.heartbeat?(Date.now()-Date.parse(sys.heartbeat))/1000:1e9,rec=ST.streams.filter(s=>s.recording).length;
+  $("#health").innerHTML=age<180?`<span class="dot ok"></span>Recorder running · ${rec} live`:`<span class="dot bad"></span>Recorder not responding`;
+  $("#disk").textContent=`${ST.free_gb} GB free`;}catch(e){$("#health").innerHTML=`<span class="dot bad"></span>Offline`}}
+
+const views={
+async overview(){
+  const st=ST||await api("/api/status"); const G=groupStreams(st.streams,st.manual); const live=G.live;
+  const clipsAll=await api("/api/clips"); const today=new Date().toISOString().slice(0,10);
+  const cnt=(f)=>clipsAll.filter(f).length;
+  let h=`<div class="top"><div><h1>Overview</h1><div class="sub">Everything the recorder is doing right now.</div></div>
+  <div class="row"><button class="btn" onclick="route()">↻ Refresh</button></div></div>
+  <div class="grid g4" style="margin-bottom:16px">
+   <div class="card"><h3>Recording now</h3><div class="kpi">${st.streams.filter(s=>s.recording).length}<small>of ${live.length} streams</small></div></div>
+   <div class="card"><h3>Candidate moments</h3><div class="kpi">${cnt(c=>c.kind==="streamer"&&c.status==="candidate")}<small>to review</small></div></div>
+   <div class="card"><h3>Finished clips</h3><div class="kpi">${cnt(c=>c.status==="final")}<small>${cnt(c=>c.status==="final"&&!c.posted)} unposted</small></div></div>
+   <div class="card"><h3>Disk free</h3><div class="kpi">${st.free_gb}<small>GB</small></div></div></div>`;
+  try{const hc=await (await fetch("/media/data/health.json",{cache:"no-store"})).json();
+    h+=hc.issues&&hc.issues.length?`<div class="warnbox" style="margin-bottom:14px"><b>Health check (${new Date(hc.t).toLocaleTimeString()}):</b><br>${hc.issues.map(i=>esc(i.msg)).join("<br>")}</div>`
+      :`<div class="sub" style="margin:-6px 0 12px">✓ Health check ${new Date(hc.t).toLocaleTimeString()}: all streams and downloads OK</div>`}catch(e){}
+  if(!live.length)h+=`<div class="empty">No streams yet. Add a YouTube live link on the <a href="#streams">Streams</a> page.</div>`;
+  for(const s of live)h+=streamCard(s);
+  if(G.upcoming.length)h+=`<h3 style="color:var(--muted);margin:22px 0 8px">Coming up</h3><div class="card" style="margin-bottom:14px">`+
+    G.upcoming.map(s=>`<div class="row" style="padding:4px 0"><b>${esc(s.name)}</b><span class="pill">Upcoming</span><span style="color:var(--muted)">${esc(s.title||"")}</span></div>`).join("")+`</div>`;
+  if(G.filling.length)h+=`<h3 style="color:var(--muted);margin:22px 0 8px">Finished broadcasts still downloading <small>(most captured first)</small></h3>`+G.filling.map(streamCard).join("");
+  // owner 2026-11-21: the "downloading these yourself" list is not shown (his checklist is the Sheet)
+  if(G.done.length)h+=`<div class="empty" style="margin-top:16px">${G.done.length} fully captured stream${G.done.length>1?"s":""} moved to <a href="#history">History</a>.</div>`;
+  return h},
+async history(){
+  const st=ST||await api("/api/status"); const G=groupStreams(st.streams,st.manual); const clipsAll=await api("/api/clips");
+  let h=`<div class="top"><div><h1>History</h1><div class="sub">Streams that are fully captured and clipped. Newest first.</div></div></div>`;
+  if(!G.done.length)return h+`<div class="empty">Nothing finished yet. A stream moves here once it has ended, every missing part is filled and every block is clipped.</div>`;
+  h+=`<div class="card"><table style="width:100%"><tr><th align="left">Streamer</th><th align="left">Stream</th><th>Length</th><th>Clips</th><th>Finished</th></tr>`;
+  for(const s of G.done){const vid=s.id.split("@")[1];const mine=clipsAll.filter(c=>c.stream_id===s.id||(c.block||"").startsWith(s.id+"|"));
+    const n=mine.filter(c=>c.status==="final"||c.status==="ready").length, m=(typeof s.candidates==="number"?s.candidates:mine.length);
+    const len=Array.isArray(s.captured)&&s.captured.length?hms(Math.max(...s.captured.map(r=>+r[1]||0))):"–";
+    h+=`<tr><td><b>${esc(s.name)}</b></td><td>${esc((s.title||s.id).slice(0,70))}</td><td align="center">${len}</td><td align="center">${n} edited · ${m} moments</td><td align="center">${s.ended?new Date(s.ended).toLocaleDateString():"–"}</td></tr>`}
+  return h+`</table></div>`},
+async streams(){
+  const c=await api("/api/config"); window._streams=c.streams.map(s=>({...s}));
+  return `<div class="top"><div><h1>Streams</h1><div class="sub">Who gets recorded. Paste a new link when a streamer starts a new broadcast.</div></div>
+  <div class="row"><button class="btn" onclick="addStreamer()">＋ Add streamer</button><button class="btn primary" onclick="saveStreams()">Save changes</button></div></div>
+  <div class="hint">When a stream ends you get a phone alert. Paste the streamer's new live link here and press <b>Save</b>; recording switches over within ~10 minutes, no restart needed.</div>
+  <div class="card"><table><thead><tr><th style="width:70px">On</th><th>Name</th><th>Live link</th><th>Credit</th><th></th></tr></thead><tbody id="srows"></tbody></table></div>
+  <div class="card" style="margin-top:14px"><h3>Add a finished video</h3>
+   <p class="sub" style="margin-top:-4px">For a replay, re-upload or highlights video (for example when a live video was made private and re-posted). It's downloaded, split into 2-hour blocks and clipped like a stream.</p>
+   <div class="row"><select id="avS">${c.streams.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("")}</select>
+   <input id="avU" placeholder="YouTube, Twitch or Kick video link" style="flex:1;min-width:260px"><button class="btn primary" onclick="addVideo()">＋ Add video</button></div>
+   <div class="help">Progress shows on the Overview under Finished broadcasts.</div></div>`},
+async clips(){
+  return `<div class="top"><div><h1>Clip library</h1><div class="sub">Edited clips wait in To review. Approve the good ones; each day's 8 are picked from Approved.</div></div>
+  <div class="row"><select id="fKind"><option value="all">All</option><option value="streamer">Streamer clips</option><option value="original">Originals</option></select>
+  <select id="fStream"><option value="">All streamers</option></select><input id="fDay" type="date"><button class="btn" onclick="loadClips()">Apply</button></div></div>
+  <div class="tabs" id="ctabs">${[["approved","Approved"],["review","To review"],["unedited","Unedited"],["rejected","Rejected"]].map(([t,l],i)=>`<span class="tab${i?"":" on"}" data-s="${t}">${l} <b class="tc" id="tc-${t}"></b></span>`).join("")}</div>
+  <div id="cnote" class="sub" style="margin:-6px 0 12px;font-size:12px"></div>
+  <div id="clipgrid" class="clips"></div>`},
+async today(){
+  const p=await api("/api/picks");
+  let h=`<div class="top"><div><h1>Today's 8</h1><div class="sub">Post each one at its time on YouTube, TikTok and X. Tick the platform once it's up, then paste the link in <a href="#posts">Posts &amp; results</a>.</div></div></div>`;
+  if(!p.length)return h+`<div class="empty">The day's 8 appear here by 06:00 (Lagos time), picked from your Approved clips.<br>Approve clips in the <a href="#clips">Clip library</a>.</div>`;
+  const PL=[["youtube","YouTube"],["tiktok","TikTok"],["x","X"]];
+  for(const day of p.slice(0,3)){const d=day.data||{};const items=Array.isArray(d)?d:(d.items||[]);
+    const done=items.filter(it=>PL.every(([k])=>(it.posted_check||{})[k])).length;
+    h+=`<div class="card" style="margin-bottom:14px"><div class="row"><b>${esc(day.day)}</b><span class="pill">${items.length} videos</span><span class="pill ${done===items.length&&items.length?"good":""}">${done}/${items.length} posted everywhere</span><span class="sp"></span>
+     <a class="btn sm" href="/api/picks/zip?day=${esc(day.day)}">⬇ Download all (zip + captions)</a></div>
+     <div style="margin-top:12px;display:grid;gap:14px">${items.map((it,i)=>{const cap=it.captions||{};window._cap=window._cap||{};window._cap[it.id]=cap;const pc=it.posted_check||{};
+       const all=PL.every(([k])=>pc[k]);
+       return `<div class="p8 ${all?"done8":""}"><video src="${media(it.final)}#t=1" controls preload="metadata" playsinline></video>
+        <div><div class="row"><span class="time">${esc(it.time||"#"+(i+1))}</span><b>${esc(it.title||it.id)}</b><span class="pill">${esc(it.name||"Original")}</span></div>
+        <div class="row" style="margin:8px 0">${PL.map(([k,n])=>`<label class="chk"><input type="checkbox" ${pc[k]?"checked":""} onchange='tick("${esc(it.meta)}","${k}",this.checked)'> ${n}</label>`).join("")}
+         <a class="btn sm primary" href="${media(it.final)}" download="${esc(it.id)}.mp4">⬇ Video</a></div>
+        <div class="row" style="gap:6px">${[["tiktok","TikTok caption"],["youtube_title","YouTube title"],["youtube","YouTube description"],["x","X post"]].map(([k,n])=>`<button class="btn sm" onclick='copyCap("${esc(it.id)}","${k}")'>📋 ${n}</button>`).join("")}</div></div></div>`}).join("")||"<div class='empty'>No items.</div>"}</div></div>`}
+  return h},
+async posts(){
+  const [rows,cl]=await Promise.all([api("/api/posts"),api("/api/clips?status=final")]);
+  const n=x=>x==null?"–":x>=1e6?(x/1e6).toFixed(1)+"M":x>=1e4?Math.round(x/1e3)+"K":x>=1e3?(x/1e3).toFixed(1)+"K":String(x);
+  const tot=rows.reduce((a,r)=>a+((r.latest||{}).views||0),0), best=rows.slice().sort((a,b)=>((b.latest||{}).views||0)-((a.latest||{}).views||0))[0];
+  const d24=rows.filter(r=>r.h24&&r.h24.views!=null), avg24=d24.length?Math.round(d24.reduce((a,r)=>a+r.h24.views,0)/d24.length):null;
+  const per={};rows.forEach(r=>{per[r.platform]=per[r.platform]||{c:0,v:0};per[r.platform].c++;per[r.platform].v+=(r.latest||{}).views||0});
+  const PN={youtube:"YouTube",tiktok:"TikTok",x:"X",instagram:"Instagram",threads:"Threads"};
+  const ins=await api("/api/insights").catch(()=>[]); const groups={};ins.forEach(r=>(groups[r.group]=groups[r.group]||[]).push(r));
+  const insHtml=ins.length?`<div class="card" style="margin-bottom:14px"><h3>What works best (average views after 24 h)</h3><div class="grid g4">${Object.entries(groups).map(([g,rs])=>`<div><div class="sub" style="margin-bottom:6px">${esc(g)}</div>${rs.slice(0,5).map((r,i)=>`<div class="row" style="justify-content:space-between"><span>${i===0?"🏆 ":""}${esc(r.value)}</span><b>${n(r.avg_views)}</b><span class="sub" style="font-size:11px">${r.posts} posts</span></div>`).join("")}</div>`).join("")}</div>
+   <p class="help">Clips like the top ones get edited and picked first. Needs a few days of posts to be reliable.</p></div>`:"";
+  return `<div class="top"><div><h1>Posts &amp; results</h1><div class="sub">Every video posted, where, and how it's doing. Stats refresh hourly for 3 days, then every 6 hours for a week.</div></div></div>
+  <div class="grid g4" style="margin-bottom:14px">
+   <div class="card"><h3>Posts tracked</h3><div class="kpi">${rows.length}</div></div>
+   <div class="card"><h3>Total views</h3><div class="kpi">${n(tot)}</div></div>
+   <div class="card"><h3>Average views at 24h</h3><div class="kpi">${n(avg24)}</div></div>
+   <div class="card"><h3>Best post</h3><div style="font-weight:600">${best?esc(best.title||best.url):"–"}</div><div class="sub">${best?n((best.latest||{}).views)+" views · "+PN[best.platform]:""}</div></div></div>
+  <div class="row" style="margin-bottom:14px">${Object.entries(per).map(([k,v])=>`<span class="plat ${k}">${PN[k]} · ${v.c} posts · ${n(v.v)} views</span>`).join("")}</div>
+  ${insHtml}
+  <div class="card" style="margin-bottom:14px"><h3>Add a post</h3><div class="row">
+   <select id="pC" style="min-width:280px"><option value="">Which video? (optional)</option>${cl.map(c=>`<option value="${esc(c.meta)}">${esc(c.title||c.id)} · ${esc(c.name||"original")}</option>`).join("")}</select>
+   <input id="pU" placeholder="Paste the post link (YouTube Short, TikTok, X post…)" style="flex:1;min-width:280px"><button class="btn primary" onclick="addPost()">＋ Track post</button></div>
+   <div class="help">Posted something yourself? Paste its link here and it gets tracked too. Posts I make are added automatically.</div></div>
+  <div class="card"><table><thead><tr><th></th><th>Video</th><th>Platform</th><th>Posted</th><th class="num-cell">Views now</th><th class="num-cell">12h</th><th class="num-cell">24h</th><th class="num-cell">72h</th><th class="num-cell">Likes</th><th class="num-cell">Comments</th><th class="num-cell">Reposts</th><th></th></tr></thead><tbody>
+  ${rows.map(r=>{const L=r.latest||{};return `<tr><td>${r.clip_meta?`<img class="mini" src="${media(r.clip_meta.replace(/\.json$/,".jpg"))}" onerror="this.style.visibility='hidden'">`:""}</td>
+   <td><div style="font-weight:600">${esc(r.title||"(no title)")}</div><div class="sub" style="font-size:12px">${esc(r.streamer||"")}${r.note?` · <span style="color:var(--amber)">${esc(r.note)}</span>`:""}</div></td>
+   <td><span class="plat ${r.platform}">${PN[r.platform]||r.platform}</span></td><td class="sub" style="font-size:12px">${new Date(r.posted_at).toLocaleString()}</td>
+   <td class="num-cell"><b>${n(L.views)}</b></td><td class="num-cell">${n(r.h12&&r.h12.views)}</td><td class="num-cell">${n(r.h24&&r.h24.views)}</td><td class="num-cell">${n(r.h72&&r.h72.views)}</td>
+   <td class="num-cell">${n(L.likes)}</td><td class="num-cell">${n(L.comments)}</td><td class="num-cell">${n(L.shares)}</td>
+   <td><a class="btn sm ghost" href="${esc(r.url)}" target="_blank">Open ↗</a> <button class="btn sm danger" onclick="rmPost(${r.id})">×</button></td></tr>`}).join("")||`<tr><td colspan=12 class="sub" style="padding:24px;text-align:center">No posts yet. They appear here as soon as a video is posted.</td></tr>`}
+  </tbody></table></div>`},
+async tools(){
+  const st=ST||await api("/api/status"); const opts=st.streams.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}${s.ended?" (ended)":""}</option>`).join("");
+  return `<div class="top"><div><h1>Tools</h1><div class="sub">Work with footage that's already been recorded. Nothing here re-downloads what we have.</div></div></div>
+  <div class="grid g2">
+  <div class="card"><h3>Get a time range</h3>
+   <div class="field"><label>Broadcast</label><select id="tS" style="width:100%">${opts}</select></div>
+   <div class="row"><div class="field" style="flex:1"><label>From (h:mm:ss into the stream)</label><input id="tA" value="1:00:00" style="width:100%"></div>
+   <div class="field" style="flex:1"><label>To</label><input id="tB" value="1:05:00" style="width:100%"></div></div>
+   <div class="row"><button class="btn primary" onclick="job('cut')">✂ Cut from saved footage</button><button class="btn" onclick="job('capture')">⤓ Fetch missing part</button></div>
+   <div class="help">"Cut" makes a file in media\\manual from footage already on disk. "Fetch" queues only the parts we don't have (if YouTube still offers them).</div></div>
+  <div class="card"><h3>Re-process a 2-hour block</h3>
+   <div class="field"><label>Block</label><select id="tBlk" style="width:100%">${st.streams.flatMap(s=>s.blocks.map(b=>`<option value="${esc(s.id)}|${b.idx}">${esc(s.name)} · block ${b.idx+1} (${hms(b.idx*7200)}–${hms((b.idx+1)*7200)}) · ${b.status}</option>`)).join("")}</select></div>
+   <button class="btn primary" onclick="reprocess()">↻ Find moments again</button>
+   <div class="help">Re-scans saved footage for moments. Useful after changing sensitivity in Settings. Only works while the raw footage is still on disk.</div></div></div>
+  <div class="card" style="margin-top:14px"><h3>Recent jobs</h3><table><thead><tr><th>#</th><th>Job</th><th>Status</th><th>Result</th></tr></thead><tbody>
+  ${(st.jobs||[]).map(j=>{let r={};try{r=JSON.parse(j.result||"{}")}catch(e){}
+    return `<tr><td>${j.id}</td><td>${esc(j.kind)} <span class="mono">${esc(j.params)}</span></td><td>${esc(j.status)}</td><td>${r.file?`<a href="${media(r.file)}" target="_blank">Open file</a>`:r.added?`Added: ${esc(r.title)} (${esc(r.length)})`:esc(r.error||(r.queued_missing?`queued ${r.queued_missing.length} missing part(s)`:r.new_candidates!=null?`${r.new_candidates} new moments`:""))}</td></tr>`}).join("")||"<tr><td colspan=4 class='sub'>No jobs yet.</td></tr>"}
+  </tbody></table></div>`},
+async activity(){
+  const st=ST||await api("/api/status");
+  return `<div class="top"><div><h1>Activity</h1><div class="sub">The last 40 things the recorder did.</div></div></div>
+  <div class="card"><table><thead><tr><th style="width:170px">Time</th><th style="width:70px">Level</th><th style="width:170px">Stream</th><th>Event</th></tr></thead><tbody>
+  ${st.events.map(e=>`<tr><td class="mono">${new Date(e.ts).toLocaleString()}</td><td class="lvl-${e.level}">${e.level}</td><td>${esc((e.stream_id||"").split("@")[0])}</td><td>${esc(e.msg)}</td></tr>`).join("")}</tbody></table></div>`},
+async settings(){
+  const c=await api("/api/config"); window._soc=await api("/api/socials").catch(()=>({})); const ph=await api("/api/phone").catch(()=>({}));
+  window._phoneCard=`<div class="card" style="margin-top:14px"><div class="row"><h3 style="margin:0">Phone access</h3><span class="sp"></span>
+   <label style="margin:0"><input type="checkbox" ${ph.enabled?"checked":""} onchange="setPhone({enabled:this.checked})"> On</label></div>
+   <p class="sub">Open the control centre on your phone over your home Wi-Fi to review and approve clips from anywhere in the house.</p>
+   ${ph.enabled?`<table><tbody><tr><td class="sub" style="width:150px">On your phone open</td><td><b class="mono">${esc(ph.url||"(not on Wi-Fi?)")}</b></td></tr>
+   <tr><td class="sub">PIN</td><td><b class="mono" style="font-size:20px;letter-spacing:3px">${esc(ph.pin||"")}</b> <button class="btn sm ghost" onclick="setPhone({new_pin:true})">New PIN</button></td></tr></tbody></table>
+   <p class="help">Phone and laptop must be on the same Wi-Fi. The first time, Windows may ask whether to allow Python on your network: choose <b>Private networks → Allow</b>.</p>`:""}</div>`;
+  const f=(k,l,h,v,step,min)=>`<div class="field"><label>${l}</label><div class="num"><button type="button" class="st" onclick="stepNum(this,-1)" aria-label="Decrease">−</button><input type="number" step="${step||1}" min="${min??0}" data-k="${k}" value="${v}"><button type="button" class="st" onclick="stepNum(this,1)" aria-label="Increase">+</button></div><div class="help">${h}</div></div>`;
+  const rc=[5,10,15,20,25,30], cur=rc.reduce((a,b)=>Math.abs(b-c.backfill.recheck_minutes)<Math.abs(a-c.backfill.recheck_minutes)?b:a);
+  return `<div class="top"><div><h1>Settings</h1><div class="sub">Changes are saved on this PC. Quality and segment length apply after a restart.</div></div>
+  <button class="btn primary" onclick="saveSettings()">Save settings</button></div>
+  <div class="grid g3"><div class="card"><h3>Recording</h3>
+   <div class="field"><label>Quality</label><select data-k="max_height" style="width:100%">${[480,720,1080].map(q=>`<option ${q==c.max_height?"selected":""} value="${q}">${q}p${q==1080?" (best)":q==720?" (saves ~45% data)":""}</option>`).join("")}</select><div class="help">1080p ≈ 1.8 GB per hour per stream.</div></div>
+   ${f("segment_minutes","Segment length (minutes)","How often a recording piece is closed and saved.",c.segment_minutes)}
+   ${f("block_hours","Clip block (hours)","Moments are found once per block.",c.block_hours,0.5)}</div>
+  <div class="card"><h3>Moment finder</h3>
+   ${f("m.threshold_db","Sensitivity (dB above normal)","Lower = more candidate moments.",c.moment.threshold_db,0.5)}
+   ${f("m.max_per_block","Max moments per block","Upper limit per 2-hour block.",c.moment.max_per_block)}
+   ${f("m.pre_s","Seconds before the peak","Build-up kept before the loud moment.",c.moment.pre_s)}
+   ${f("m.post_s","Seconds after the peak","Payoff kept after it.",c.moment.post_s)}</div>
+  <div class="card"><h3>Storage</h3>
+   ${f("raw_keep_hours_after_clip","Keep raw footage (hours after clipping)","Raw pieces are deleted after this to save space.",c.raw_keep_hours_after_clip)}
+   ${f("min_free_gb","Minimum free space (GB)","Below this, old raw footage is cleaned up first.",c.min_free_gb)}
+   </div></div>
+  <div class="card" style="margin-top:14px"><h3>Missing footage</h3><div class="grid g3">
+   <div class="field"><label><input type="checkbox" data-k="b.enabled" ${c.backfill.enabled?"checked":""}> Fetch missing footage automatically</label><div class="help">Live streams: straight away from YouTube's rewind (power cuts, restarts, earlier hours). Finished streams: from the replay.</div></div>
+   <div class="field"><label>Re-check finished streams every</label><div class="seg-pick">${rc.map(m=>`<label><input type="radio" name="rc" data-k="b.recheck_minutes" value="${m}" ${m===cur?"checked":""}><span>${m} min</span></label>`).join("")}</div>
+   <div class="help">How often to check YouTube for a finished stream's replay (like Kai Part 1) and download the parts that weren't recorded. A wait already counting down finishes first, then this applies.</div></div>
+   ${f("b.rate_limit_mb","Download speed cap (MB/s, 0 = no cap)","Keeps missing-footage downloads from slowing down the live recordings.",c.backfill.rate_limit_mb,0.1)}</div></div>
+  ${window._phoneCard||""}
+  <div class="card" style="margin-top:14px"><div class="row"><h3 style="margin:0">Your social accounts</h3><span class="sp"></span><button class="btn" onclick="saveSocials()">Save accounts</button></div>
+   <p class="sub">Your profile links (no passwords: sign-ins stay in your browser). Ticked accounts get the daily videos.</p>
+   <table><tbody>${[["youtube","YouTube","https://www.youtube.com/@SnipRiotGTA"],["tiktok","TikTok","https://www.tiktok.com/@snipriotgta"],["x","X","https://x.com/SnipRiotGTA"],["instagram","Instagram","https://www.instagram.com/snipriotgta"],["threads","Threads","https://www.threads.net/@snipriotgta"]].map(([k,n,ph])=>{const v=(window._soc||{})[k]||{};
+    return `<tr><td style="width:130px"><span class="plat ${k}">${n}</span></td><td><input class="soc" data-p="${k}" data-f="url" value="${esc(v.url||"")}" placeholder="${ph}" style="width:100%"></td>
+    <td style="width:170px"><input class="soc" data-p="${k}" data-f="handle" value="${esc(v.handle||"")}" placeholder="@handle" style="width:100%"></td>
+    <td style="width:120px"><label style="margin:0"><input type="checkbox" class="soc" data-p="${k}" data-f="enabled" ${v.enabled?"checked":""}>Post here</label></td></tr>`}).join("")}</tbody></table></div>`},
+async system(){
+  const s=await api("/api/system"); const age=s.heartbeat?(Date.now()-Date.parse(s.heartbeat))/1000:1e9;
+  return `<div class="top"><div><h1>System</h1><div class="sub">Health checks and controls.</div></div></div>
+  <div class="grid g3">
+  <div class="card"><h3>Recorder</h3><div class="row"><span class="pill ${age<180?"good":"bad"}">${age<180?"Running":"Not responding"}</span><span class="sub">heartbeat ${ago(s.heartbeat)}</span></div>
+   <p class="sub">Up ${hm(s.uptime_s)} since the last restart.</p>
+   <div class="row"><button class="btn" onclick="ctl('restart','Restart the recorder? Recording pauses for about 40 seconds (the gap is filled from the replay later).')">↻ Restart recorder</button></div></div>
+  <div class="card"><h3>Missing footage</h3><div class="row"><span class="pill ${s.backfill_paused||s.disk_guard?"warn":"good"}">${s.disk_guard?"Paused: disk almost full":s.backfill_paused?"Paused":"Active"}</span></div>
+   <p class="sub">Fetches what wasn't recorded: from YouTube's rewind while live, or the replay after a stream ends.</p>
+   <div class="row">${s.backfill_paused?`<button class="btn" onclick="ctl('resume_backfill')">▶ Resume</button>`:`<button class="btn" onclick="ctl('pause_backfill')">⏸ Pause</button>`}</div></div>
+  <div class="card"><h3>Storage</h3><div class="kpi">${s.free_gb}<small>GB free</small></div><p class="sub mono">${esc(s.data_root)}</p></div></div>
+  <div class="card" style="margin-top:14px"><h3>Installed tools</h3><table><tbody>${Object.entries(s.tools).map(([k,v])=>`<tr><td style="width:120px"><b>${esc(k)}</b></td><td class="mono">${esc(v)}</td><td>${/missing/.test(v)?'<span class="pill bad">Missing</span>':'<span class="pill good">OK</span>'}</td></tr>`).join("")}</tbody></table>
+  <p class="help">Missing something? Run SETUP.bat in ${esc(s.code_root)} again.</p></div>`}
+};
+
+function platName(u){u=u||"";return /twitch\.tv/.test(u)?"Twitch":/kick\.com/.test(u)?"Kick":/youtu/.test(u)?"YouTube":"site"}
+function missingOf(s){return (s.gaps||[]).filter(g=>g.status==="open"||g.status==="retry").reduce((a,g)=>a+((+g.end||0)-(+g.start||0)),0)}
+function groupStreams(all,manualIds){
+  const live=[],upcoming=[],filling=[],done=[],manual=[];const MAN=new Set(manualIds||[]);const liveBy=new Set(all.filter(s=>!s.ended&&s.live_status==="is_live").map(s=>s.id.split("@")[0]));
+  const seenUp=new Set();
+  for(const s of all){const base=s.id.split("@")[0];
+    if(!s.ended&&s.live_status==="is_upcoming"){
+      if(s.id.endsWith("@unknown")&&all.some(x=>x!==s&&x.id.split("@")[0]===base&&x.live_status==="is_upcoming"))continue;   // duplicate placeholder
+      if(seenUp.has(base))continue; seenUp.add(base); upcoming.push(s); continue}
+    if(!s.ended){
+      const twins=all.filter(x=>x!==s&&!x.ended&&x.live_status==="is_live"&&x.id.split("@")[0]===base);
+      if(!s.recording&&twins.some(x=>x.recording)){filling.push(s);continue}   // an older broadcast still marked live: it has ended
+      live.push(s);continue}
+    const open=missingOf(s)>0, pending=(s.blocks||[]).some(b=>["recording","waiting_backfill","complete","partial"].includes(b.status));
+    if(MAN.has(s.id)&&open){manual.push(s);continue}   // the owner downloads this one himself: no server download
+    if(open||pending)filling.push(s); else done.push(s)}
+  const pct=s=>{const m=missingOf(s),c=+s.captured_s||0;return c+m>0?c/(c+m):0};
+  filling.sort((a,b)=>pct(b)-pct(a)||missingOf(a)-missingOf(b));   // most captured first
+  return {live,upcoming,filling,done,manual,liveBy}}
+function streamCard(s){
+  if(s.live_status==="is_upcoming")return `<div class="card" style="margin-bottom:14px"><div class="row"><b style="font-size:15px">${esc(s.name)}</b>
+   <span class="pill" style="color:var(--cyan);border-color:rgba(0,229,255,.45)">⏳ Upcoming${s.kind_note&&s.kind_note!=="scheduled"?" · "+esc(s.kind_note):""}</span>
+   <span class="sub" style="max-width:520px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.title||"")}</span><span class="sp"></span>
+   <a class="btn sm ghost" href="${esc(s.url)}" target="_blank">Open on ${platName(s.url)} ↗</a></div>
+   <p class="sub" style="margin:8px 0 0">Not live yet. Checked every minute; recording starts by itself as soon as the stream begins, and the first minutes are pulled from YouTube's rewind.</p></div>`;
+  const T=Math.max(s.now_offset||1,1),pc=x=>(100*Math.max(0,x)/T).toFixed(3)+"%",w=(a,b)=>(100*Math.max(0,b-a)/T).toFixed(3)+"%";
+  const waiting=s.gaps.filter(g=>g.status!=="unavailable"),lost=s.gaps.filter(g=>g.status==="unavailable");
+  const recFrom=s.recording?Math.max(s.last_captured||0,s.rec_since||0):null, recLen=s.recording?Math.max(0,T-recFrom):0;
+  const pct=Math.min(100,Math.round(100*((s.captured_s||0)+recLen)/Math.max(1,s.now_offset||1)));
+  const cd=s.next_check_s==null?"":s.next_check_s<=0?`<span class="pill">Fetching missing footage…</span>`:
+    `<span class="pill warn">Next check in <b class="cd" data-at="${Date.now()+s.next_check_s*1000}">${hms(s.next_check_s)}</b></span>`;
+  const done=s.ended&&!waiting.length, state=s.recording?`<span class="pill live">Recording</span>`:
+    done&&!lost.length?`<span class="pill good">Fully saved ✓</span>`:done?`<span class="pill warn">Saved ${pct}% · ${hm(lost.reduce((a,g)=>a+g.end-g.start,0))} lost</span>`:
+    s.ended?`<span class="pill">Ended · filling gaps (${pct}%)</span>`:`<span class="pill warn">Not recording</span>`;
+  const tag=s.kind_note==="added video"?`<span class="pill" style="color:var(--cyan);border-color:rgba(0,229,255,.4)">Added video</span>`:
+    s.kind_note==="private"?`<span class="pill bad">Private on YouTube</span>`:"";
+  const gb=b=>(b/1e9).toFixed(b>=1e10?0:1)+" GB", mbs=v=>(v/1e6).toFixed(1)+" MB/s";
+  const xfer=(s.transfers||[]).map(t=>t.kind==="replay"
+    ?`<span class="pill" style="color:var(--cyan);border-color:rgba(0,229,255,.45)" title="Whole replay downloading. Counts toward Captured when it finishes.">⬇ Replay ${gb(t.bytes)}${t.expected?" / ~"+gb(t.expected):""} · ${mbs(t.speed_bps)}${t.eta_s?" · ~"+hm(t.eta_s)+" left":""}${t.stalled_s>120?" · ⚠ stalled "+Math.round(t.stalled_s/60)+"m":""}</span>`
+    :t.kind==="fill"?`<span class="pill" style="color:var(--amber);border-color:rgba(255,190,60,.45)" title="Downloading a missing piece">⬇ Filling gap (${esc(t.label||"")}) ${gb(t.bytes)}${t.expected?" / ~"+gb(t.expected):""} · ${mbs(t.speed_bps)}${t.eta_s?" · ~"+hm(t.eta_s)+" left":""}${t.stalled_s>120?" · ⚠ stalled":""}</span>`
+    :`<span class="pill live" title="Live recording speed">● Recording ${mbs(t.speed_bps)}${t.stalled_s>90?" · ⚠ stalled":""}</span>`).join("");
+  const kinds=(s.transfers||[]).map(t=>t.kind), qd=s.queue||{};
+  const queued=(qd.replay&&!kinds.includes("replay")?`<span class="pill" title="Waiting for its turn to download the whole replay">⏳ Replay queued #${qd.replay}</span>`:"")+
+    (qd.fill&&!kinds.includes("fill")&&!kinds.includes("replay")?`<span class="pill" title="Waiting for its turn to fill missing footage">⏳ Gap fill queued #${qd.fill}</span>`:"");
+  const idle=!xfer&&!queued&&!s.recording&&!(s.ended&&!waiting.length)?`<span class="pill" title="Nothing downloading for this stream right now">Idle</span>`:"";
+  return `<div class="card" style="margin-bottom:14px"><div class="row"><b style="font-size:15px">${esc(s.name)}</b>${state}${tag}${xfer}${queued}${idle}
+   <span class="sub" style="max-width:520px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.title||"")}</span><span class="sp"></span>
+   ${cd}<a class="btn sm ghost" href="${esc(s.url)}" target="_blank">Open on ${platName(s.url)} ↗</a></div>
+  <div class="grid g4" style="margin-top:10px;gap:10px">
+   <div><div class="sub">${s.ended?"Stream length":"Live for"}</div><b>${hm(s.now_offset)}</b></div><div><div class="sub">Captured</div><b>${hm((s.captured_s||0)+recLen)}</b> <span class="sub">(${pct}%)</span>${s.recording?`<div class="sub" style="font-size:11px">${hm(recLen)} in the piece being recorded · saves at :00/:30</div>`:""}</div>
+   <div><div class="sub">Last saved</div><b>${hms(s.last_captured)}</b></div><div><div class="sub">Moments found</div><b>${s.candidates}</b></div></div>
+  <div class="tl">${waiting.map(g=>`<div class="wait" style="left:${pc(g.start)};width:${w(g.start,g.end)}" title="Waiting: ${hms(g.start)}–${hms(g.end)}"></div>`).join("")}
+   ${lost.map(g=>`<div class="gap" style="left:${pc(g.start)};width:${w(g.start,g.end)}" title="Lost: ${hms(g.start)}–${hms(g.end)} ${esc(g.note||"")}"></div>`).join("")}
+   ${s.captured.map(([a,b])=>`<div class="seg" style="left:${pc(a)};width:${w(a,b)}" title="Captured ${hms(a)}–${hms(b)}"></div>`).join("")}
+   ${s.on_disk.map(([a,b])=>`<div class="disk" style="left:${pc(a)};width:${w(a,b)}"></div>`).join("")}
+   ${s.recording?`<div class="rec" style="left:${pc(recFrom)};width:${w(recFrom,T)}" title="Recording now: saved as solid green at :00/:30">${(T-recFrom)/T>0.04?"<b>● REC</b>":""}</div><div class="now" style="left:calc(${pc(T)} - 3px)"></div>`:""}</div>
+  <div class="scale"><span>0:00 (stream start)</span><span>${hms(T/2)}</span><span>${hms(T)}${s.recording?" · now":""}</span></div>
+  <div class="legend"><span><i style="background:#22c55e"></i>Captured</span><span><i style="background:repeating-linear-gradient(-45deg,#2fe08a 0 3px,#1aa865 3px 6px)"></i>Recording now (saved at :00/:30)</span><span><i style="background:var(--cyan)"></i>Raw on disk</span><span><i style="background:var(--amber)"></i>Waiting for replay</span><span><i style="background:var(--red)"></i>Lost</span></div>
+  ${s.blocks.length>16?`<div class="blocks">${Object.entries(s.blocks.reduce((a,b)=>(a[b.status]=(a[b.status]||0)+1,a),{})).map(([k,n])=>`<span class="blk ${k}">${n} × ${({clipped:"clipped",complete:"ready",partial:"partial",waiting_backfill:"waiting",missing:"missing",recording:"recording"})[k]||k}</span>`).join("")}</div>`:
+   s.blocks.length?`<div class="blocks">${s.blocks.map(b=>`<span class="blk ${b.status}" title="${Math.round((b.coverage||0)*100)}% covered">#${b.idx+1} ${({clipped:"clipped",complete:"ready",partial:"partial",waiting_backfill:"waiting",missing:"missing",recording:"recording"})[b.status]||b.status}${b.n_moments?` · ${b.n_moments}`:""}</span>`).join("")}</div>`:""}</div>`}
+
+function clipCard(c){
+  const vid=c.final||c.out||c.source, img=c.sheet, st=c.status||"candidate";
+  const badge={final:"good",candidate:"warn",rejected:"bad"}[st]||"";
+  return `<div class="clip"><div class="thumb ${c.final||c.kind==="original"?"":"wide"}" onclick='openClip(${JSON.stringify(c).replace(/'/g,"&#39;")})'>
+   ${c.final||c.kind==="original"?`<video src="${media(vid)}#t=1" muted preload="metadata" onmouseenter="this.play()" onmouseleave="this.pause()"></video>`:img?`<img src="${media(img)}" loading="lazy">`:""}
+   <span class="pill badge ${badge}">${esc({final:"Finished",candidate:"To review",rejected:"Rejected"}[st]||st)}</span>${c.score?`<span class="score">${c.score}/10</span>`:""}</div>
+  <div class="meta"><div class="t">${esc(c.title||c.hook||(c.name?c.name+" moment":c.id))}</div>
+   <div class="row"><span class="pill">${esc(c.kind==="original"?"Original":c.name||c.stream_id)}</span>${c.tag?`<span class="pill">${esc(c.tag)}</span>`:""}${c.approved?'<span class="pill good">Approved</span>':""}</div>
+   <div class="sub" style="font-size:12px">${esc(c.day||"")}${c.broadcast_offset?` · at ${esc(c.broadcast_offset)}`:""}${c.length_s?` · ${c.length_s}s`:""}</div>
+   <div class="acts">${st!=="rejected"?`<button class="btn sm" onclick='setClip("${esc(c.meta)}",{approved:${!c.approved}})'>${c.approved?"Unapprove":"✓ Approve"}</button><button class="btn sm danger" onclick='setClip("${esc(c.meta)}",{status:"rejected"})'>Reject</button><button class="btn sm danger" onclick='if(confirm("Delete this duplicate clip now? It cannot be undone."))setClip("${esc(c.meta)}",{status:"duplicate"})'>Duplicate</button>`:`<button class="btn sm" onclick='setClip("${esc(c.meta)}",{status:"candidate"})'>Restore</button><button class="btn sm danger" onclick='delClips(["${esc(c.meta)}"])'>🗑 Delete</button>`}</div></div></div>`}
+
+function cMeta(c){return `<div class="cm">${esc(c.kind==="original"?"Original":c.name||"")}${c.score?` · ${c.score}/10`:""}${c.day?` · ${esc(c.day.slice(5))}`:""}${c.length_s?` · ${Math.round(c.length_s)}s`:""}</div>`}
+function vThumb(c){return `<div class="thumb"><video src="${media(c.final)}#t=1" controls preload="metadata" playsinline></video></div>`}
+function unCard(c){return `<div class="clip"><div class="thumb"><img src="${media(c.sheet||"")}" loading="lazy" style="width:100%;height:100%;object-fit:cover" onerror="this.style.visibility='hidden'">${c.status==="editing"?'<span class="score">editing…</span>':""}</div>
+   <div class="meta"><div class="t clamp">${esc(c.name||"")} · ${esc(c.broadcast_offset||"")} into the stream</div>${cMeta(c)}</div></div>`}
+function revCard(c){const m=esc(c.meta);
+  return `<div class="clip rv" data-meta="${m}">${vThumb(c)}<div class="meta"><div class="t clamp">${esc(c.title||c.id)}</div>${cMeta(c)}
+   <div class="acts3"><button class="btn sm primary" onclick='setClip("${m}",{approved:true})'>✓ Approve</button><button class="btn sm" onclick='redo("${m}")'>↻ Redo</button><button class="btn sm danger" onclick='setClip("${m}",{status:"rejected"})'>✕ Reject</button></div></div></div>`}
+function appCard(c){const m=esc(c.meta),cap=c.captions||{},k=esc(c.id);window._cap=window._cap||{};window._cap[c.id]=cap;
+  const blk=(lab,key,txt)=>`<div class="capb"><div class="row"><b>${lab}</b><span class="sp"></span><button class="btn sm ghost" onclick='copyCap("${k}","${key}")'>Copy</button></div><div class="capt">${esc(txt||"")}</div></div>`;
+  return `<div class="clip">${vThumb(c)}<div class="meta"><div class="t clamp">${esc(c.title||c.id)}</div>${cMeta(c)}
+   <details class="caps"><summary>Post captions &amp; hashtags</summary>
+    ${blk("TikTok","tiktok",cap.tiktok)}${blk("YouTube title","youtube_title",cap.youtube_title)}${blk("YouTube description","youtube",cap.youtube)}${blk("X","x",cap.x)}</details>
+   <div class="acts3" style="grid-template-columns:1fr 1fr"><a class="btn sm primary" href="${media(c.final)}" download="${esc((c.id||"clip")+".mp4")}">⬇ Download</a><button class="btn sm" onclick='setClip("${m}",{approved:false})'>↩ Unapprove</button></div></div></div>`}
+window._rf=0;
+function rvFocus(i){const cs=[...document.querySelectorAll(".clip.rv")];if(!cs.length)return;window._rf=Math.max(0,Math.min(i,cs.length-1));
+  cs.forEach((c,k)=>{c.classList.toggle("focus",k===window._rf);const v=c.querySelector("video");if(k!==window._rf&&v)v.pause()});
+  const c=cs[window._rf];c.scrollIntoView({block:"nearest",behavior:"smooth"});return c}
+document.addEventListener("keydown",async e=>{
+  if(!location.hash.startsWith("#clips")||$("#ctabs .tab.on")?.dataset.s!=="review")return;
+  if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName))return;
+  const cs=[...document.querySelectorAll(".clip.rv")];if(!cs.length)return;
+  const k=e.key.toLowerCase(),c=cs[window._rf]||cs[0],m=c.dataset.meta,v=c.querySelector("video");
+  if(k==="arrowright"||k==="j"){e.preventDefault();const n=rvFocus(window._rf+1);n&&n.querySelector("video")?.play()}
+  else if(k==="arrowleft"||k==="k"){e.preventDefault();const n=rvFocus(window._rf-1);n&&n.querySelector("video")?.play()}
+  else if(k===" "){e.preventDefault();rvFocus(window._rf);v&&(v.paused?v.play():v.pause())}
+  else if(k==="a"||k==="r"){e.preventDefault();v&&v.pause();const keep=window._rf;
+    await setClip(m,k==="a"?{approved:true}:{status:"rejected"});setTimeout(()=>{const n=rvFocus(keep);n&&n.querySelector("video")?.play()},700)}
+  else if(k==="e"){e.preventDefault();redo(m)}});
+async function delClips(metas){if(!metas.length)return;
+  if(!confirm(metas.length===1?"Delete this clip permanently? This can't be undone.":`Delete all ${metas.length} rejected clips permanently? This can't be undone.`))return;
+  try{const r=await api("/api/clip",{action:"delete",metas});toast(`Deleted ${r.deleted} clip${r.deleted===1?"":"s"}`);loadClips()}catch(e){toast(e.message,1)}}
+async function tick(meta,k,on){try{const cur=await api("/api/clips?kind=all");const c=cur.find(x=>x.meta===meta)||{};const pc=Object.assign({},c.posted_check||{},{[k]:on});
+  await api("/api/clip",{meta,changes:{posted_check:pc}});toast(on?"Marked as posted":"Unmarked")}catch(e){toast(e.message,1)}}
+async function copyCap(id,key){const t=((window._cap||{})[id]||{})[key]||"";try{await navigator.clipboard.writeText(t);toast("Copied")}catch(e){const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove();toast("Copied")}}
+async function redo(m){const n=prompt("What should change? (title, hook, cut, crop…) I'll redo it on the next run.");if(!n)return;
+  try{await api("/api/clip",{meta:m,changes:{owner_note:n,status:"candidate",approved:false}});toast("Sent back for a redo");route()}catch(e){toast(e.message,1)}}
+function pickCard(it){
+  const file=it.final||it.file||it.path||it.video; const title=it.title||it.id||"Video";
+  return `<div class="clip"><div class="thumb">${file?`<video src="${media(file)}#t=1" controls preload="metadata"></video>`:""}</div>
+   <div class="meta"><div class="t">${esc(title)}</div><div class="row"><span class="pill">${esc(it.name||it.streamer||it.type||it.kind||"")}</span></div>
+   ${it.caption||it.captions?`<div class="sub" style="font-size:12px;white-space:pre-wrap">${esc(typeof it.captions==="object"?Object.entries(it.captions).map(([k,v])=>k+": "+v).join("\n\n"):it.caption||it.captions)}</div>`:""}
+   ${it.meta?`<div class="acts"><button class="btn sm" onclick='setClip("${esc(it.meta)}",{approved:true})'>✓ Approve</button></div>`:""}</div></div>`}
+
+function openClip(c){const v=c.final||c.out||c.source;
+  $("#modalBox").innerHTML=`<video src="${media(v)}" controls autoplay></video><div style="min-width:260px;max-width:340px">
+   <h2 style="margin:0 0 8px;font-size:18px">${esc(c.title||c.name+" moment")}</h2>
+   <div class="row" style="margin-bottom:10px"><span class="pill">${esc(c.name||c.kind)}</span>${c.tag?`<span class="pill">${esc(c.tag)}</span>`:""}${c.score?`<span class="pill">${c.score}/10</span>`:""}</div>
+   <table><tbody>${[["Day",c.day],["In the stream",c.broadcast_offset],["Length",c.length_s&&c.length_s+" s"],["Loudness peak",c.score_db&&"+"+c.score_db+" dB"],["Credit",c.credit],["Status",c.status],["Reason",c.reason]].filter(r=>r[1]).map(r=>`<tr><td class="sub">${r[0]}</td><td>${esc(r[1])}</td></tr>`).join("")}</tbody></table>
+   <div class="field" style="margin-top:12px"><label>Note for Claude</label><textarea id="note" rows="3" style="width:100%">${esc(c.owner_note||"")}</textarea></div>
+   <div class="row"><button class="btn primary" onclick='setClip("${esc(c.meta)}",{approved:true,owner_note:$("#note").value});closeModal()'>✓ Approve</button>
+   <button class="btn danger" onclick='setClip("${esc(c.meta)}",{status:"rejected",owner_note:$("#note").value});closeModal()'>Reject</button>
+   <a class="btn ghost" href="${media(v)}" download>Download</a></div></div>`;$("#modal").classList.add("show")}
+
+async function setClip(meta,changes){try{await api("/api/clip",{meta,changes});toast(changes.status==="rejected"?"Rejected":changes.approved===true?"Approved ✓":changes.approved===false?"Moved back to To review":"Updated");if(location.hash.startsWith("#clips"))loadClips();else route()}catch(e){toast(e.message,1)}}
+async function loadClips(){const tab=$("#ctabs .tab.on").dataset.s, st=$("#fStream").value, dy=$("#fDay").value, kind=$("#fKind").value;
+  const keep=c=>(kind==="all"||c.kind===kind)&&(!st||(c.stream_id||"").split("@")[0]===st)&&(!dy||c.day===dy);
+  const [rev,app,all]=await Promise.all([api("/api/queue?view=review"),api("/api/queue?view=approved"),api("/api/clips?kind=all")]);
+  const rej=all.filter(c=>c.status==="rejected"||c.status==="removed"), waiting=all.filter(c=>c.status==="candidate").length;
+  const unedited=all.filter(c=>c.status==="candidate"||c.status==="editing");
+  const sets={review:rev,approved:app,unedited,rejected:rej};
+  for(const k in sets){const e=$("#tc-"+k);if(e)e.textContent=sets[k].filter(keep).length}
+  window._rej=rej.filter(keep).map(c=>c.meta);
+  $("#cnote").innerHTML=tab==="rejected"&&window._rej.length?`<button class="btn sm danger" onclick="delClips(window._rej)">🗑 Delete all ${window._rej.length} rejected clips permanently</button>`:"";
+  if(tab!=="rejected")$("#cnote").textContent=tab==="unedited"?"Cut moments waiting to be edited (subtitles, title, watermark). Each moves to To review when it's done, or to Rejected if it's not usable.":waiting?`✂ ${waiting} cut moments are waiting in Unedited.`:"";
+  const items=sets[tab].filter(keep);
+  $("#cnote").innerHTML+=tab==="review"&&items.length?` <span class="kbd-help">Shortcuts: <b>←/→</b> move · <b>Space</b> play · <b>A</b> approve · <b>R</b> reject · <b>E</b> redo</span>`:"";
+  $("#clipgrid").innerHTML=items.map(c=>tab==="review"?revCard(c):tab==="approved"?appCard(c):tab==="unedited"?unCard(c):clipCard(c)).join("")||`<div class="empty" style="grid-column:1/-1">${{review:"Nothing to review right now. Newly edited clips appear here every hour.",approved:"Nothing approved yet. Approve clips in To review.",rejected:"No rejected clips.",unedited:"Everything has been edited ✓",all:"Nothing here yet."}[tab]}</div>`}
+function renderStreamRows(){$("#srows").innerHTML=window._streams.map((s,i)=>`<tr>
+  <td><input type="checkbox" ${s.enabled!==false?"checked":""} onchange="_streams[${i}].enabled=this.checked"></td>
+  <td><input value="${esc(s.name)}" oninput="_streams[${i}].name=this.value;if(!_streams[${i}]._saved)_streams[${i}].id=this.value" style="width:100%"></td>
+  <td><input value="${esc(s.url)}" placeholder="https://www.youtube.com/live/... or twitch.tv/... or kick.com/..." oninput="_streams[${i}].url=this.value" style="width:100%"></td>
+  <td><input value="${esc(s.credit||"")}" placeholder="@handle" oninput="_streams[${i}].credit=this.value" style="width:100%"></td>
+  <td><button class="btn sm danger" onclick="if(confirm('Stop recording '+_streams[${i}].name+'?')){_streams.splice(${i},1);renderStreamRows()}">Remove</button></td></tr>`).join("")}
+function addStreamer(){window._streams.push({id:"",name:"",url:"",credit:"",enabled:true});renderStreamRows()}
+async function setPhone(o){try{await api("/api/phone",o);toast(o.new_pin?"New PIN made":o.enabled?"Phone access on: restarting the control centre (30 s)…":"Phone access off");setTimeout(route,o.new_pin?300:35000)}catch(e){toast(e.message,1)}}
+async function saveSocials(){const o={};document.querySelectorAll(".soc").forEach(e=>{const p=e.dataset.p;o[p]=o[p]||{};o[p][e.dataset.f]=e.type==="checkbox"?e.checked:e.value.trim()});
+  try{await api("/api/socials",o);toast("Social accounts saved")}catch(e){toast(e.message,1)}}
+async function addPost(){const url=$("#pU").value.trim();if(!url)return toast("Paste the post link",1);
+  try{await api("/api/posts",{url,meta:$("#pC").value||""});toast("Tracking this post. First stats in a few minutes.");route()}catch(e){toast(e.message,1)}}
+async function rmPost(id){if(!confirm("Stop tracking this post? (It stays on the platform.)"))return;try{await api("/api/posts",{action:"remove",id});route()}catch(e){toast(e.message,1)}}
+async function addVideo(){const url=$("#avU").value.trim();if(!/^https?:\/\/\S+$/.test(url))return toast("Paste the full video link (https://...)",1);
+  try{await api("/api/jobs",{kind:"add_video",params:{streamer:$("#avS").value,url}});$("#avU").value="";toast("Adding the video… it appears on the Overview in a few seconds")}catch(e){toast(e.message,1)}}
+async function saveStreams(){try{window._streams.forEach(s=>{if(!s.id)s.id=s.name});await api("/api/streams",{streams:window._streams});toast("Saved. New links are picked up within ~10 minutes.")}catch(e){toast(e.message,1)}}
+async function saveSettings(){const b={moment:{},backfill:{}};document.querySelectorAll("[data-k]").forEach(el=>{if(el.type==="radio"&&!el.checked)return;const k=el.dataset.k,v=el.type==="checkbox"?el.checked:el.value;
+  if(k.startsWith("m."))b.moment[k.slice(2)]=v;else if(k.startsWith("b."))b.backfill[k.slice(2)]=v;else b[k]=v});
+  try{const r=await api("/api/settings",b);toast(r.restart_needed?"Saved. Restart the recorder (System page) to apply quality/segment changes.":"Settings saved")}catch(e){toast(e.message,1)}}
+function stepNum(btn,dir){const i=btn.parentElement.querySelector("input"),st=parseFloat(i.step)||1,mn=parseFloat(i.min);
+  let v=(parseFloat(i.value)||0)+dir*st;if(!isNaN(mn))v=Math.max(mn,v);i.value=+v.toFixed(3);i.dispatchEvent(new Event("change"))}
+async function job(kind){try{await api("/api/jobs",{kind,params:{stream:$("#tS").value,start_s:parseT($("#tA").value),end_s:parseT($("#tB").value)}});toast("Job queued. Results show in Recent jobs.");setTimeout(route,3000)}catch(e){toast(e.message,1)}}
+async function reprocess(){const v=$("#tBlk").value;if(!v)return;try{await api("/api/jobs",{kind:"reprocess",params:{stream:v.split("|")[0],block:v,force:false}});toast("Re-processing queued");setTimeout(route,3000)}catch(e){toast(e.message,1)}}
+async function ctl(action,confirmMsg){if(confirmMsg&&!confirm(confirmMsg))return;try{await api("/api/control",{action});toast(action==="restart"?"Restarting… back in about a minute":"Done");setTimeout(route,1500)}catch(e){toast(e.message,1)}}
+
+async function route(){const v=(location.hash||"#overview").slice(1).split("?")[0];
+  document.querySelectorAll("nav a").forEach(a=>a.classList.toggle("on",a.getAttribute("href")==="#"+v));
+  try{$("#view").innerHTML=await (views[v]||views.overview)();}catch(e){$("#view").innerHTML=`<div class="warnbox">Couldn't load this page: ${esc(e.message)}. Is the recorder running?</div>`;return}
+  if(v==="streams")renderStreamRows();
+  if(v==="clips"){const st=ST||await api("/api/status");const names=[...new Map(st.streams.map(s=>[s.streamer||s.id.split("@")[0],s.name])).entries()];
+    $("#fStream").innerHTML+=names.map(([id,n])=>`<option value="${esc(id)}">${esc(n)}</option>`).join("");
+    document.querySelectorAll("#ctabs .tab").forEach(t=>t.onclick=()=>{document.querySelectorAll("#ctabs .tab").forEach(x=>x.classList.remove("on"));t.classList.add("on");loadClips()});loadClips()}
+  clearInterval(timer);if(v==="overview")timer=setInterval(async()=>{await refreshHealth();if((location.hash||"#overview")==="#overview")$("#view").innerHTML=await views.overview()},15000)}
+window.addEventListener("hashchange",route);document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
+refreshHealth().then(route);setInterval(refreshHealth,30000);
+setInterval(()=>document.querySelectorAll(".cd").forEach(e=>{const left=(+e.dataset.at-Date.now())/1000;e.textContent=left>0?hms(left):"now"}),1000);
+</script>
+</body>
+</html>

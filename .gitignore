@@ -1,0 +1,26 @@
+# Private data: settings (contains the phone PIN), streams, databases, keys, logs
+data/
+media/
+tools/
+DROP_STREAMS_HERE/
+system/config.json
+*.pem
+*.key
+*.env
+*.log
+
+# Video, audio and images from recordings or exports
+*.mp4
+*.mkv
+*.ts
+*.m4a
+*.webm
+*.mov
+*.ttf.bak
+
+# Build leftovers and backups
+__pycache__/
+*.pyc
+*.bak
+*.tmp
+system/bin/

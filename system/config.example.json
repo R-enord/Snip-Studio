@@ -1,0 +1,31 @@
+{
+  "streams": [],
+  "ytdlp_cmd": ["yt-dlp"],
+  "ffmpeg": "ffmpeg",
+  "ffprobe": "ffprobe",
+  "max_height": 1080,
+  "segment_minutes": 30,
+  "block_hours": 2,
+  "gap_tolerance_s": 20,
+  "retry_backoff_s": [10, 30, 60, 120, 300],
+  "block_grace_minutes": 180,
+  "raw_keep_hours_after_clip": 12,
+  "min_free_gb": 40,
+  "moment": {
+    "threshold_db": 8,
+    "min_gap_s": 45,
+    "pre_s": 22,
+    "post_s": 10,
+    "max_per_block": 20
+  },
+  "backfill": {
+    "enabled": true,
+    "max_attempts": 4,
+    "chunk_minutes": 30,
+    "rate_limit": "1.2M",
+    "ypb_port": 9123
+  },
+  "dashboard_port": 8765,
+  "data_root": "~/SnipRiot",
+  "ypb_cmd": ["%USERPROFILE%\\Videos\\SnipRiot\\system\\bin\\ypb.exe"]
+}
