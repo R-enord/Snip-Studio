@@ -13,14 +13,16 @@ import json, os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CANVAS_W = 1080
-MARGIN = 40                     # gap from the top-right corner
+CANVAS_H = 1920
+MARGIN = 40                     # gap from the canvas edges
 
 CAMPAIGNS = {
     "clipup_gta6_logo": {
         "name": "GTA VI Clipup Logo Campaign",
         "hashtags": ["#gta6", "#Clipup"],
         "logo": os.path.join(ROOT, "brand", "campaigns", "clipup", "logo.png"),
-        "logo_max_h": 180,      # the top band above the title box (title starts at y=230 without a facecam)
+        "logo_width": 540,      # px on the 1080-wide canvas; the height follows the file's aspect ratio
+        "logo_margin": 0,       # flush to the bottom-right corner, as in the owner's reference image
         "keep_days": 60,
     },
 }
@@ -48,19 +50,23 @@ def logo_ready(name):
     return os.path.exists(campaign(name)["logo"])
 
 
-def logo_position(logo_w, logo_h, max_h, credit_box=None):
-    """Top-right corner at the logo's own size. Raises rather than shrink it or let it touch the credit pill."""
-    if logo_h > max_h:
-        raise CampaignError(f"logo is {logo_h}px tall but the top band is {max_h}px. ClipUp's rules say never shrink it, "
-                            "so the file needs a different size or the band needs to change.")
-    x, y = CANVAS_W - logo_w - MARGIN, MARGIN
-    if x < 0:
-        raise CampaignError(f"logo is {logo_w}px wide, wider than the frame allows at a {MARGIN}px margin")
+def logo_fit(logo_w, logo_h, target_w, cam_h=0, credit_box=None, margin=MARGIN):
+    """Bottom-right corner, scaled to target_w keeping the file's aspect ratio: never cropped, stretched or recoloured.
+    Raises rather than cover the facecam (cam_h) or the credit pill."""
+    if logo_w <= 0 or logo_h <= 0:
+        raise CampaignError("logo file has no size")
+    if target_w > CANVAS_W - 2 * margin:
+        raise CampaignError(f"target width {target_w}px does not fit the {CANVAS_W}px frame at a {margin}px margin")
+    w, h = target_w, round(logo_h * target_w / logo_w)
+    x, y = CANVAS_W - w - margin, CANVAS_H - h - margin
+    if y < cam_h:
+        raise CampaignError(f"logo would reach y={y}, into the facecam (ends at y={cam_h})")
     if credit_box:
         cx0, cy0, cx1, cy1 = credit_box
-        if not (x >= cx1 or y + logo_h <= cy0 or y >= cy1):
-            raise CampaignError("logo would overlap the credit pill, which would hide part of the logo's space")
-    return x, y
+        if not (x >= cx1 or y + h <= cy0 or y >= cy1):
+            raise CampaignError("logo would overlap the credit pill")
+    return w, h, x, y
+
 
 
 def set_campaigns(path, names, remove=False):

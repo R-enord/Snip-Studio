@@ -192,7 +192,7 @@ def crop_expr(box, sw, sh, ow, oh):
     return f"crop={int(nw)//2*2}:{int(nh)//2*2}:{int(max(0,cx-nw/2))}:{int(max(0,cy-nh/2))},scale={ow}:{oh}"
 
 def render(src, out, title, credit, cam=None, game=None, start=None, end=None, music="auto", subs=False, ffmpeg="ffmpeg", ffprobe="ffprobe",
-           logo=None, logo_max_h=180):
+           logo=None, logo_width=540, logo_margin=0):
     pr = json.loads(subprocess.run([ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height:format=duration",
                                     "-of", "json", src], capture_output=True, text=True).stdout)
     sw, sh = pr["streams"][0]["width"], pr["streams"][0]["height"]; dur = float(pr["format"]["duration"])
@@ -201,11 +201,13 @@ def render(src, out, title, credit, cam=None, game=None, start=None, end=None, m
     tp, op = os.path.join(tmp, "title.png"), os.path.join(tmp, "ov.png")
     title_png(title, tp); overlay_png(credit, op, bool(cam))
     lx = ly = None
-    if logo:                                  # campaign logo: its own size, top-right, never over the credit pill
-        lw, lh = Image.open(logo).size
+    lg = None
+    if logo:                                  # campaign logo: bottom-right, scaled to logo_width, aspect kept
+        lw0, lh0 = Image.open(logo).size
         ctw = measure(f"🎥 {credit}", ImageFont.truetype(TEXT_FONT, 30), 30)
         cy = CAM_H - 64 if cam else 150
-        lx, ly = campaigns.logo_position(lw, lh, logo_max_h, (28, cy, 28 + ctw + 28, cy + 46))
+        lw, lh, lx, ly = campaigns.logo_fit(lw0, lh0, logo_width, cam_h=CAM_H if cam else 0, credit_box=(28, cy, 28 + ctw + 28, cy + 46), margin=logo_margin)
+        lg = os.path.join(tmp, "logo.png"); Image.open(logo).convert("RGBA").resize((lw, lh), Image.LANCZOS).save(lg)
     game = game or ([0.2, 0, 0.6, 1] if not cam else [0, 0, 1, 1])
     if cam:
         v = (f"[0:v]split[a][b];[a]{crop_expr(cam, sw, sh, W, CAM_H)}[cam];[b]{crop_expr(game, sw, sh, W, H - CAM_H)}[gm];"
@@ -214,7 +216,7 @@ def render(src, out, title, credit, cam=None, game=None, start=None, end=None, m
         v = (f"[0:v]{crop_expr(game, sw, sh, W, H)}[base];[base][1:v]overlay=0:230[t];[t][2:v]overlay=0:0[o0]")
     inputs = ["-ss", f"{s0:.2f}", "-t", f"{d:.2f}", "-i", src, "-i", tp, "-i", op]
     trk = pick_music(out) if music == "auto" else (None if music in (None, "none") else music)
-    lines = chunks(transcribe(src, s0, d, ffmpeg), d) if subs else []
+    lines = []   # subtitles are no longer shown on clips (owner 2026-11-24); transcribe() is not called
     first = 4 if trk else 3; last = "o0"
     logo_idx = first + len(lines) if logo else None   # input index after the subtitle PNGs
     for k, (a, b, txt) in enumerate(lines):
@@ -229,7 +231,7 @@ def render(src, out, title, credit, cam=None, game=None, start=None, end=None, m
         inputs += ["-stream_loop", "-1", "-i", trk]
     inputs += sub_inputs
     if logo:
-        inputs += ["-i", logo]
+        inputs += ["-i", lg]
     if trk:
         a = (f"[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,asplit[voice][key];"
              f"[3:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,volume=0.16,afade=t=in:d=1,afade=t=out:st={max(0, d - 1.2):.2f}:d=1.2[bed];"
@@ -251,9 +253,10 @@ if __name__ == "__main__":
     ap.add_argument("--cam", type=fl); ap.add_argument("--game", type=fl)
     ap.add_argument("--start", type=float); ap.add_argument("--end", type=float); ap.add_argument("--music", default="auto")
     ap.add_argument("--subs", action="store_true")
-    ap.add_argument("--logo", help="campaign logo PNG, placed at its own size top-right")
-    ap.add_argument("--logo-max-h", type=int, default=180)
+    ap.add_argument("--logo", help="campaign logo PNG, placed bottom-right and scaled to --logo-width")
+    ap.add_argument("--logo-width", type=int, default=540)
+    ap.add_argument("--logo-margin", type=int, default=0)
     ap.add_argument("--handle", default=HANDLE, help="watermark text; 'none' for no watermark")
     a = ap.parse_args()
     HANDLE = "" if a.handle.lower() == "none" else a.handle
-    print(json.dumps(render(a.src, a.out, a.title, a.credit, a.cam, a.game, a.start, a.end, a.music, a.subs, logo=a.logo, logo_max_h=a.logo_max_h), ensure_ascii=False))
+    print(json.dumps(render(a.src, a.out, a.title, a.credit, a.cam, a.game, a.start, a.end, a.music, a.subs, logo=a.logo, logo_width=a.logo_width, logo_margin=a.logo_margin), ensure_ascii=False))

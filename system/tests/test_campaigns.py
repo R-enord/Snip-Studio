@@ -31,20 +31,21 @@ class CaptionTests(unittest.TestCase):
 
 
 class LogoPlacementTests(unittest.TestCase):
-    def test_top_right_at_own_size(self):
-        self.assertEqual(campaigns.logo_position(300, 150, 180, (28, 150, 300, 196)), (1080 - 300 - 40, 40))
+    def test_bottom_right_scaled_keeping_aspect(self):
+        self.assertEqual(campaigns.logo_fit(1774, 887, 540, margin=0), (540, 270, 540, 1650))
 
-    def test_refuses_to_shrink_a_tall_logo(self):
+    def test_refuses_to_cover_facecam(self):
         with self.assertRaises(campaigns.CampaignError):
-            campaigns.logo_position(300, 200, 180)
+            campaigns.logo_fit(1774, 887, 540, margin=0, cam_h=1700)
 
     def test_refuses_overlap_with_credit_pill(self):
         with self.assertRaises(campaigns.CampaignError):
-            campaigns.logo_position(1000, 150, 180, (28, 150, 300, 196))
+            campaigns.logo_fit(1774, 887, 540, margin=0, credit_box=(500, 1600, 800, 1700))
 
-    def test_refuses_logo_wider_than_frame(self):
+    def test_refuses_wider_than_frame(self):
         with self.assertRaises(campaigns.CampaignError):
-            campaigns.logo_position(1100, 100, 180)
+            campaigns.logo_fit(1774, 887, 1100)
+
 
 
 class RenditionQueueTests(unittest.TestCase):

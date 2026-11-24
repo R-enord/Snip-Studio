@@ -64,7 +64,7 @@ def have_mark(d):
     return d.get("wm_handle") or ("@SnipRiotGTA" if d.get("wm") == 2 else None)
 
 def todo(cfg):
-    subs = bool(cfg.get("subtitles"))
+    subs = False  # subtitles are no longer shown on clips (owner 2026-11-24)
     fresh, upgrades = [], []
     for p in glob.glob(os.path.join(CANDIDATES, "*", "*", "*.json")):
         try: d = json.load(open(p, encoding="utf-8"))
@@ -124,7 +124,7 @@ def render(cfg, p, d, campaign=None):
     except Exception: pass
     cam = (cams.get(base) or {}).get("cam")
     out = os.path.join(LIBRARY, d["day"], base, d["id"] + (f".{campaign}" if campaign else "") + ".mp4"); os.makedirs(os.path.dirname(out), exist_ok=True)
-    subs = bool(cfg.get("subtitles"))
+    subs = False  # subtitles are no longer shown on clips (owner 2026-11-24)
     cmd = [sys.executable, STYLE, os.path.join(DATA_ROOT, d["source"]), out + ".part.mp4", "--title", d["title"],
            "--credit", d.get("name") or base]
     if cam: cmd += ["--cam", ",".join(str(x) for x in cam)]
@@ -132,7 +132,7 @@ def render(cfg, p, d, campaign=None):
     mark = mark_for(cfg, d, base); cmd += ["--handle", mark]
     if campaign:
         cc = campaigns.campaign(campaign)
-        cmd += ["--logo", cc["logo"], "--logo-max-h", str(cc["logo_max_h"])]
+        cmd += ["--logo", cc["logo"], "--logo-width", str(cc["logo_width"]), "--logo-margin", str(cc["logo_margin"])]
     t0 = time.time()
     r = subprocess.run(cmd, env=env(), capture_output=True, text=True, timeout=1800, creationflags=CREATE_NO_WINDOW,
                        encoding="utf-8", errors="replace")
