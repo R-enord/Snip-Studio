@@ -192,6 +192,7 @@ def detect_block(cfg, b, force=False):
 def cleanup(cfg):
     keep = cfg["raw_keep_hours_after_clip"] * 3600
     def deletable(seg, ignore_keep=False):
+        if "_owner" in seg["path"]: return False   # the owner's own drops (DROP_STREAMS_HERE) stay until he deletes them
         bl = db_all("SELECT status, clipped_at, n_moments FROM blocks WHERE stream_id=? AND end>? AND start<?",
                     (seg["stream_id"], seg["wall_start"], seg["wall_end"]))
         # a block that gave 0 clips (no sound? a file still to be joined with its audio) keeps its footage a day
@@ -276,7 +277,7 @@ def delete_timeline(cfg, p):
     for t in ("segments", "gaps", "blocks"): db_exec(f"DELETE FROM {t} WHERE stream_id=?", (sid,))
     db_exec("DELETE FROM streams WHERE id=?", (sid,))
     try:
-        import watcher; watcher.remember([st["video_id"]])     # never re-added by the channel watcher
+        import watcher; watcher.remember([st["video_id"]]); watcher.remember_title(st["title"])     # never re-added by the channel watcher
     except Exception: pass
     log(None, "INFO", f"deleted duplicate timeline {sid} ({st['title']}): {files} files removed, {kept} finished/approved clips kept"
                       + (f"; it's covered by {keep_by}" if keep_by else ""))
@@ -349,6 +350,8 @@ def run_job(cfg, j):
     if j["kind"] == "fetch_model": return fetch_model(p)
     if j["kind"] == "end_stream": return end_stream(cfg, p)
     if j["kind"] == "delete_timeline": return delete_timeline(cfg, p)
+    if j["kind"] == "judge":
+        import judge; return judge.start(cfg, p)
     if j["kind"] == "add_post":
         import posts; return posts.add(p, by=p.get("by", "claude"))
     sid = p["stream"]; a0 = anchor(sid)
@@ -372,6 +375,33 @@ def run_job(cfg, j):
         return {"new_candidates": detect_block(cfg, b, force=bool(p.get("force")))}
     return {"error": "unknown job"}
 
+def delete_done_streams(cfg):
+    """Owner's list (data/delete_when_done.json): delete a stream once every part is captured and clipped and every
+    cut moment is edited or decided (final, ready, editing, approved, rejected or removed). Uses delete_timeline,
+    so finished and approved clips are kept."""
+    path = os.path.join(DATA, "delete_when_done.json")
+    if not os.path.exists(path): return
+    try: todo = json.load(open(path, encoding="utf-8"))
+    except Exception: return
+    left = []
+    for sid in todo:
+        if not db_one("SELECT id FROM streams WHERE id=?", (sid,)): continue          # already gone
+        if db_one("SELECT id FROM gaps WHERE stream_id=? AND status IN ('open','retry')", (sid,)) \
+           or db_one("SELECT id FROM blocks WHERE stream_id=? AND status!='clipped'", (sid,)) \
+           or not db_one("SELECT id FROM blocks WHERE stream_id=?", (sid,)):
+            left.append(sid); continue
+        pending = False
+        for m in db_all("SELECT * FROM moments WHERE stream_id=?", (sid,)):
+            if not os.path.exists(m["meta_path"] or ""): continue
+            try: d = json.load(open(m["meta_path"], encoding="utf-8"))
+            except Exception: pending = True; break
+            if not (d.get("status") in ("final", "ready", "editing", "rejected", "removed") or d.get("approved")):
+                pending = True; break
+        if pending: left.append(sid); continue
+        res = delete_timeline(cfg, {"sid": sid})
+        log(sid, "INFO", f"fully clipped and edited: {res}")
+    open(path, "w", encoding="utf-8").write(json.dumps(left, indent=1))
+
 def loop(cfg):
     last_clean = 0
     while True:
@@ -383,7 +413,7 @@ def loop(cfg):
             for f in sorted(glob.glob(os.path.join(inbox, "*.json"))):
                 try:
                     d = json.load(open(f, encoding="utf-8"))
-                    if d.get("kind") in ("cut", "capture", "reprocess", "add_video", "add_post", "fetch_model", "end_stream", "delete_timeline"):
+                    if d.get("kind") in ("cut", "capture", "reprocess", "add_video", "add_post", "fetch_model", "end_stream", "delete_timeline", "judge"):
                         db_exec("INSERT INTO jobs(kind,params,status,created) VALUES(?,?,'queued',?)", (d["kind"], json.dumps(d.get("params", {})), now()))
                     os.replace(f, f[:-5] + ".done")
                 except Exception as e:
@@ -396,7 +426,7 @@ def loop(cfg):
             b = db_one("SELECT * FROM blocks WHERE status IN ('complete','partial') ORDER BY start LIMIT 1")
             if b: detect_block(cfg, b); continue
             if now() - last_clean > 600:
-                cleanup(cfg); last_clean = now()
+                cleanup(cfg); delete_done_streams(cfg); last_clean = now()
         except Exception as e:
             log(None, "ERROR", f"pipeline: {type(e).__name__}: {e}")
         time.sleep(20)

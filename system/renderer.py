@@ -5,6 +5,7 @@ subtitles, music, watermark) and moves it to To review. It also re-renders finis
 Python packages it needs (Pillow, faster-whisper) are installed once into <data_root>/tools/winlib."""
 import glob, json, os, subprocess, sys, time
 from common import *
+import campaigns
 
 WINLIB = os.path.join(DATA_ROOT, "tools", "winlib2")
 PIPLOG = os.path.join(DATA, "logs", "renderer-install.log")
@@ -56,11 +57,8 @@ def save(p, d):
 ACCOUNTS = {"a1": "@SnipRiotGTA", "a2": "@smartclips42"}
 
 def mark_for(cfg, d, base=None):
-    """Watermark for a clip: none for campaign streamers (their rules ban logos), else the account's handle."""
-    if base:
-        s = next((x for x in cfg.get("streams", []) if x.get("id") == base), {})
-        if (s.get("campaign") or {}).get("no_watermark"): return "none"
-    return ACCOUNTS.get(d.get("account") or "a1", "@SnipRiotGTA")
+    """Owner rule (2026-11-23): no watermark on any clip or original. ACCOUNTS is kept for reference only."""
+    return "none"
 
 def have_mark(d):
     return d.get("wm_handle") or ("@SnipRiotGTA" if d.get("wm") == 2 else None)
@@ -82,8 +80,26 @@ def todo(cfg):
         except Exception: continue
         if d.get("status") == "ready" and (d.get("render_fails") or 0) < 3 and os.path.exists(p[:-5] + ".spec.json"):
             fresh.append(("0", p, d))          # originals first: only 2 a day and they're time-sensitive
+        elif d.get("status") == "final" and not d.get("posted") and (d.get("render_fails") or 0) < 3 \
+                and os.path.exists(p[:-5] + ".spec.json") and have_mark(d) != mark_for(cfg, d):
+            upgrades.append(("0", p, d))       # finished originals that still carry a watermark
     fresh.sort(key=lambda x: x[0]); upgrades.sort(key=lambda x: x[0])
     return fresh + upgrades
+
+def campaign_todo(cfg):
+    """Campaign renditions (ClipUp logo) for approved, finished clips. Waits until the logo file is in place."""
+    out = []
+    for p in glob.glob(os.path.join(CANDIDATES, "*", "*", "*.json")):
+        try: d = json.load(open(p, encoding="utf-8"))
+        except Exception: continue
+        if d.get("status") != "final" or not d.get("title") or not d.get("approved"): continue
+        if (d.get("campaign_fails") or 0) >= 3: continue
+        for name in d.get("campaigns") or []:
+            if name not in campaigns.CAMPAIGNS or not campaigns.logo_ready(name): continue
+            if name in (d.get("campaign_renditions") or {}): continue
+            out.append((d.get("created") or "", p, d, name))
+    out.sort(key=lambda x: x[0])
+    return out
 
 def render_original(cfg, p, d):
     spec, out = p[:-5] + ".spec.json", p[:-5] + ".mp4"
@@ -101,33 +117,47 @@ def render_original(cfg, p, d):
     log(None, "INFO", f"renderer: original {os.path.basename(out)} done in {int(time.time() - t0)}s")
     return True
 
-def render(cfg, p, d):
+def render(cfg, p, d, campaign=None):
     base = d["stream_id"].split("@")[0]
     cams = {}
     try: cams = json.load(open(os.path.join(DATA, "cams.json"), encoding="utf-8"))
     except Exception: pass
     cam = (cams.get(base) or {}).get("cam")
-    out = os.path.join(LIBRARY, d["day"], base, d["id"] + ".mp4"); os.makedirs(os.path.dirname(out), exist_ok=True)
+    out = os.path.join(LIBRARY, d["day"], base, d["id"] + (f".{campaign}" if campaign else "") + ".mp4"); os.makedirs(os.path.dirname(out), exist_ok=True)
     subs = bool(cfg.get("subtitles"))
     cmd = [sys.executable, STYLE, os.path.join(DATA_ROOT, d["source"]), out + ".part.mp4", "--title", d["title"],
            "--credit", d.get("name") or base]
     if cam: cmd += ["--cam", ",".join(str(x) for x in cam)]
     if subs: cmd += ["--subs"]
     mark = mark_for(cfg, d, base); cmd += ["--handle", mark]
+    if campaign:
+        cc = campaigns.campaign(campaign)
+        cmd += ["--logo", cc["logo"], "--logo-max-h", str(cc["logo_max_h"])]
     t0 = time.time()
     r = subprocess.run(cmd, env=env(), capture_output=True, text=True, timeout=1800, creationflags=CREATE_NO_WINDOW,
                        encoding="utf-8", errors="replace")
     d = json.load(open(p, encoding="utf-8"))   # re-read: the owner may have changed it meanwhile
     if r.returncode != 0 or not os.path.exists(out + ".part.mp4"):
+        if campaign:                          # a failed rendition never counts against the normal clip
+            d["campaign_fails"] = (d.get("campaign_fails") or 0) + 1; d["campaign_error"] = (r.stderr or r.stdout)[-300:]
+            save(p, d); log(None, "WARN", f"renderer: {d['id']} {campaign} rendition failed: {d['campaign_error'][-150:]}"); return False
         d["render_fails"] = (d.get("render_fails") or 0) + 1; d["render_error"] = (r.stderr or r.stdout)[-300:]
         save(p, d); log(None, "WARN", f"renderer: {d['id']} failed: {d['render_error'][-150:]}"); return False
     os.replace(out + ".part.mp4", out)
+    if campaign:                              # the normal clip keeps its status and file
+        d.setdefault("campaign_renditions", {})[campaign] = os.path.relpath(out, DATA_ROOT).replace("\\", "/")
+        d.pop("campaign_error", None); d.pop("campaign_fails", None)
+        save(p, d)
+        log(None, "INFO", f"renderer: {d['id']} {campaign} rendition done in {int(time.time() - t0)}s")
+        return True
     if d.get("status") in ("ready", "final"):
         d.update(status="final", final=os.path.relpath(out, DATA_ROOT).replace("\\", "/"), broll=True, wm=2, wm_handle=mark, subs=subs,
                  rendered=iso(now()), rendered_by="pc")
         d.pop("render_error", None); d.pop("render_fails", None)
         save(p, d)
     log(None, "INFO", f"renderer: {d['id']} done in {int(time.time() - t0)}s")
+    import worklog
+    worklog.add("render", d["id"], f"house-style version ready for review ({int(time.time() - t0)}s)")
     return True
 
 def loop(cfg):
@@ -144,11 +174,16 @@ def loop(cfg):
                 f = os.path.join(DATA, "job_inbox", "fetch_voice.json")
                 if not os.path.exists(f): json.dump({"kind": "fetch_model", "params": {"voice": "en_US-ryan-high"}}, open(f, "w"))
             jobs = todo(cfg)
-            json.dump({"t": iso(now()), "queue": len(jobs), "ok": True}, open(STATE, "w"))
-            if not jobs: time.sleep(60); continue
-            _, p, d = jobs[0]
-            if p.startswith(ORIGINALS): render_original(cfg, p, d)
-            else: render(cfg, p, d)
+            cjobs = campaign_todo(cfg)
+            json.dump({"t": iso(now()), "queue": len(jobs) + len(cjobs), "ok": True}, open(STATE, "w"))
+            if not jobs and not cjobs: time.sleep(60); continue
+            if jobs:
+                _, p, d = jobs[0]
+                if p.startswith(ORIGINALS): render_original(cfg, p, d)
+                else: render(cfg, p, d)
+            else:
+                _, p, d, name = cjobs[0]
+                render(cfg, p, d, campaign=name)
         except Exception as e:
             log(None, "ERROR", f"renderer: {type(e).__name__}: {str(e)[:200]}")
             try: json.dump({"t": iso(now()), "ok": False, "error": str(e)[:200]}, open(STATE, "w"))

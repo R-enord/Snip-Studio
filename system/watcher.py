@@ -15,6 +15,21 @@ def known():
     try: return set(json.load(open(KNOWN, encoding="utf-8")))
     except Exception: return set()
 
+TITLES = os.path.join(os.path.dirname(KNOWN), "known_titles.json")   # titles of deleted streams: never re-added
+def _ntitle(t):
+    t = re.sub(r"\s*\d{4}-\d{2}-\d{2}.*$", "", t or "")          # drop a trailing date stamp
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", t.lower()).split())
+def _titles():
+    try: return set(json.load(open(TITLES, encoding="utf-8")))
+    except Exception: return set()
+def title_known(t):
+    n = _ntitle(t); return bool(n) and n in _titles()
+def remember_title(t):
+    n = _ntitle(t)
+    if not n: return
+    cur = _titles() | {n}; tmp = TITLES + ".tmp"
+    json.dump(sorted(cur), open(tmp, "w", encoding="utf-8")); os.replace(tmp, TITLES)
+
 def remember(ids):
     k = known() | set(ids); tmp = KNOWN + ".tmp"
     json.dump(sorted(k), open(tmp, "w", encoding="utf-8")); os.replace(tmp, KNOWN)
@@ -57,7 +72,7 @@ def check_twitch(cfg, s, W, login):
     since = W.get("since", "2026-11-18")
     for e in flat(cfg, f"https://www.twitch.tv/{login}/videos?filter=archives&sort=time", 12):
         vid, title, url = str(e.get("id") or ""), e.get("title") or "", (e.get("url") or "").rstrip("/")
-        if not vid or vid in have or url in have or not match.search(title) or not_six.search(title) or skip.search(title): continue
+        if not vid or vid in have or url in have or not match.search(title) or not_six.search(title) or skip.search(title) or title_known(title): continue
         ts = e.get("timestamp") or e.get("release_timestamp")
         if ts and datetime.datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d") < since: remember([vid]); continue
         if ts and any(abs(ts - b) < 3600 for b in live_starts): remember([vid]); continue   # we recorded this one live
@@ -84,7 +99,7 @@ def check(cfg, s, W):
     cur_live = bool(cur and cur["live_status"] in ("is_live", "is_upcoming"))
     for e in entries:   # newest first
         vid, title, ls = e.get("id"), e.get("title") or "", e.get("live_status")
-        if not vid or vid in have or not match.search(title) or not_six.search(title): continue
+        if not vid or vid in have or not match.search(title) or not_six.search(title) or title_known(title): continue
         if ls in ("is_live", "is_upcoming") and vid != cur_id:
             if cur_live and ls == "is_upcoming": continue          # don't leave a live stream for a scheduled one
             set_stream(s["id"], url=f"https://www.youtube.com/watch?v={vid}")
@@ -100,7 +115,7 @@ def check(cfg, s, W):
     except Exception: pass
     for e in longs:
         vid, title = e.get("id"), e.get("title") or ""
-        if not vid or vid in have or not match.search(title) or not_six.search(title): continue
+        if not vid or vid in have or not match.search(title) or not_six.search(title) or title_known(title): continue
         ts = e.get("timestamp") or e.get("release_timestamp")
         if ts and datetime.datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d") < since: remember([vid]); continue
         from pipeline import add_video

@@ -7,6 +7,8 @@ from common import *
 LATENCY_S = 20
 PROCS = set()  # child processes, stopped when the worker restarts  # approx. capture delay behind the broadcast; offsets are +/- ~30s
 
+PAUSE_RECORDING = os.path.join(DATA, "pause_recording")   # owner switch: no live recording while this file exists
+
 def fetch_info(cfg, url):
     # skip the DASH listing (we record HLS): on very long live streams it can take minutes to fetch
     r = run(cfg["ytdlp_cmd"] + ["-J", "--no-warnings", "--no-playlist", "--socket-timeout", "30",
@@ -195,6 +197,8 @@ class Recorder:
         while True:
             s = self.current()
             if not s or not s.get("enabled", True):
+                time.sleep(60); continue
+            if os.path.exists(PAUSE_RECORDING):
                 time.sleep(60); continue
             try:
                 info = fetch_info(self.cfg, s["url"])

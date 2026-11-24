@@ -1,6 +1,7 @@
 """Per-platform post text for SnipRiot videos: a hook line, credit, and hashtags sized to each platform.
 The hook is written per clip (field "hook" on the clip record); the title is the fallback."""
 import re
+import campaigns
 
 BASE = ["#GTA6", "#GTAVI"]
 EXTRA = ["#GTA6Gameplay", "#GrandTheftAuto", "#GTA", "#Gaming"]
@@ -27,6 +28,14 @@ def who(rec):
 def tidy(t):
     return re.sub(r"\s+", " ", (t or "").strip())
 
+def _uniq(tags):
+    """Drop repeats, ignoring case, keeping the first spelling (campaign tags come first)."""
+    seen, out = set(), []
+    for t in tags:
+        if t.lower() not in seen:
+            seen.add(t.lower()); out.append(t)
+    return out
+
 def build(rec):
     """rec: a clip/original record (title, hook?, streamer/name?, kind?, topic_tags?). Returns dict of platform texts."""
     title = tidy(rec.get("title")) or "GTA 6 moment"
@@ -38,9 +47,10 @@ def build(rec):
     if s and s.get("line"): credit = s["line"] + "\n" + credit        # campaign-required caption line
     handle = ACCOUNTS.get(rec.get("account") or "a1", "@SnipRiotGTA")
     stags = s["tags"] if s else ORIGINAL_TAGS[:2]
+    camp = campaigns.hashtags(rec.get("campaigns"))     # campaign-required tags go first so the length cut never drops them
 
-    tiktok_tags = BASE + stags + topic + EXTRA[:2] + ["#fyp"]
-    tiktok = "\n".join(x for x in [hook, credit, " ".join(dict.fromkeys(tiktok_tags))] if x)
+    tiktok_tags = camp + BASE + stags + topic + EXTRA[:2] + ["#fyp"]
+    tiktok = "\n".join(x for x in [hook, credit, " ".join(_uniq(tiktok_tags))] if x)
 
     yt_title = (hook if len(hook) <= 90 else title)[:90].rstrip() + " #Shorts"
     yt_desc = "\n".join(x for x in [
@@ -48,13 +58,13 @@ def build(rec):
         f"Clip from {s['name']}'s live stream. All credit to {s['name']}." if s else "",
         f"Follow {handle} for daily GTA 6 clips, news and hidden details.",
         "",
-        " ".join(dict.fromkeys(BASE + stags + topic + EXTRA + ["#Shorts"])),
+        " ".join(_uniq(camp + BASE + stags + topic + EXTRA + ["#Shorts"])),
     ] if x is not None)
 
-    x_tags = " ".join(dict.fromkeys(BASE[:1] + stags[:1] + topic[:1]))
+    x_tags = " ".join(_uniq(camp + BASE[:1] + stags[:1] + topic[:1]))
     x_credit = credit
     x = "\n\n".join(t for t in [hook, x_credit, x_tags] if t)
     if len(x) > 270:
         x = "\n\n".join(t for t in [hook[:270 - len(x_tags) - len(x_credit) - 6].rstrip() + "…", x_credit, x_tags] if t)
 
-    return {"youtube_title": yt_title, "youtube": yt_desc, "tiktok": tiktok[:2150], "x": x}
+    return {"youtube_title": yt_title, "youtube": yt_desc, "tiktok": tiktok[:2150], "instagram": tiktok[:2150], "x": x}

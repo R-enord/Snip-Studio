@@ -7,6 +7,7 @@ from pipeline import coverage, anchor
 def status(cfg):
     out = {"generated": iso(now()), "free_gb": round(free_gb(), 1), "streams": []}
     for st in db_all("SELECT * FROM streams ORDER BY COALESCE(ended_at, 9e18) DESC, broadcast_start DESC"):
+        if st["id"] in set(cfg.get("overview_hidden") or []): continue   # hidden from the overview by the owner (data kept)
         sid = st["id"]; a0 = anchor(sid)
         end = st["ended_at"] or max(now(), a0 or now())
         cov = coverage(sid, a0, end, include_deleted=True) if a0 else []
@@ -106,6 +107,74 @@ def set_clip(meta_rel, changes):
     with open(tmp, "w", encoding="utf-8") as f: json.dump(d, f, indent=1)
     os.replace(tmp, p); return d
 
+def _posted_out(d):
+    return isinstance(d.get("posted"), dict) and len(d["posted"]) >= 3
+
+def _held(d, cfg):
+    """Clips kept out of approve-all and the random picks: streams on hold, and streamers excluded from posting."""
+    sid = d.get("stream_id") or ""
+    return sid in (cfg.get("held_streams") or []) or sid.split("@")[0] in (cfg.get("post_exclude_streamers") or [])
+
+def approve_all():
+    """Approve every clip in the review queue, except clips on hold (settings: held_streams) or from excluded streamers.
+    A clip whose file is briefly locked (renderer or reviewer writing it) is retried; one failure never stops the rest."""
+    cfg = load_config()
+    todo = [d for d in clips("all", status="final", limit=5000) if not d.get("approved") and not _posted_out(d)]
+    metas = [d["meta"] for d in todo if not _held(d, cfg)]
+    held = len(todo) - len(metas)
+    done, failed = 0, []
+    for m in metas:
+        for attempt in range(3):
+            try:
+                set_clip(m, {"approved": True}); done += 1; break
+            except Exception as e:
+                if attempt == 2: failed.append(f"{m}: {e}")
+                else: time.sleep(0.4)
+    if failed: log(None, "WARN", f"approve all: {len(failed)} clip(s) not approved, first: {failed[0]}")
+    else: log(None, "INFO", f"approve all: {done} approved, {held} held left in review")
+    return {"approved": done, "failed": len(failed), "held": held, "errors": failed[:5]}
+
+def random32(n_per_account=16):
+    """Random approved clips for the two accounts: n_per_account each, never the same clip on both, only streamers each account carries.
+    Every pick gets captions and hashtags for its account. Written to daily_picks so the Picks tab and its zip show it."""
+    import random, captions
+    pend = pending_daily_post()
+    if pend:
+        files = sorted({x["file"] for x in pend})
+        raise DailyPostPending(f"The Daily post still has {len(pend)} clip(s) waiting for their four links ({', '.join(files)}). Paste all four links and press Confirm on each, then pick 32 again.", len(pend))
+    cfg = load_config()
+    rng = random.SystemRandom()
+    before = set()   # clips already in an earlier pick file are never picked again
+    for fp in glob.glob(os.path.join(DATA, "daily_picks", "*.json")):
+        pd = read_json(fp); its = pd if isinstance(pd, list) else (pd or {}).get("items") or []
+        before.update(it["meta"] for it in its if isinstance(it, dict) and it.get("meta"))
+    pool = [d for d in clips("all", status="final", limit=5000)
+            if d.get("approved") and d.get("hook_checked") and not _posted_out(d) and not _held(d, cfg) and d["meta"] not in before]
+    if not pool: raise ValueError("No hooked clips left to pick. Hook more approved clips first (each one needs a checked hook).")
+    accounts = [a for a in cfg.get("accounts", []) if a.get("id") in ("a1", "a2")]
+    order = accounts[:]; rng.shuffle(order)
+    used, picked = set(), {}
+    for a in order:
+        allowed = set(a.get("streamers") or [])
+        elig = [d for d in pool if d["meta"] not in used
+                and (d.get("kind") == "original" or (d.get("stream_id") or "").split("@")[0] in allowed)]
+        rng.shuffle(elig)
+        picked[a["id"]] = elig[:n_per_account]
+        used.update(d["meta"] for d in picked[a["id"]])
+    items = []
+    for aid in ("a1", "a2"):
+        for d in picked.get(aid, []):
+            streamer = (d.get("stream_id") or "").split("@")[0]
+            rec = dict(d); rec["account"] = aid; rec["streamer"] = streamer
+            items.append({"id": d.get("id"), "meta": d["meta"], "final": d.get("final"), "title": d.get("title"),
+                          "hook": d.get("hook"), "streamer": streamer or "original", "account": aid,
+                          "time": d.get("peak_time") or "", "captions": captions.build(rec)})
+    rel = os.path.join("daily_picks", "random32-" + time.strftime("%Y%m%d-%H%M%S") + ".json")
+    with open(os.path.join(DATA, rel), "w", encoding="utf-8") as f:
+        json.dump({"created": iso(now()), "rule": f"{n_per_account} per account, random from approved clips, no clip on both accounts, no clip picked in an earlier file, held and excluded streams left out",
+                   "items": items}, f, indent=1, ensure_ascii=False)
+    return {"picked": len(items), "per_account": {a: len(picked.get(a, [])) for a in ("a1", "a2")}, "pool": len(pool), "file": rel.replace(os.sep, "/")}
+
 def delete_clip(meta_rel):
     """Permanently delete a rejected clip: its cut, contact sheet, edited video and record. The moment stays listed in
     the database, so the same moment is never cut again."""
@@ -167,10 +236,73 @@ def insights():
     out.sort(key=lambda x: (x["group"], -x["avg_views"]))
     return out
 
+class DailyPostPending(Exception):
+    """Pick 32 was asked for while the Daily post still has clips waiting for their four links."""
+    def __init__(self, msg, pending=0):
+        super().__init__(msg); self.pending = pending
+
+def picks_file(day):
+    """Path of a picks list by its file name (for example random32-20261124-132200). Anything that is not a plain name is refused."""
+    import re
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", day or ""): return None
+    p = os.path.join(DATA, "daily_picks", day + ".json")
+    return p if os.path.isfile(p) else None
+
+def _picks_items(d):
+    return d if isinstance(d, list) else (d or {}).get("items") or []
+
+def pending_daily_post():
+    """Daily post items not confirmed yet (all four links pasted and confirmed). Pick 32 stays blocked while any are left."""
+    out = []
+    for fp in sorted(glob.glob(os.path.join(DATA, "daily_picks", "*.json"))):
+        if os.path.basename(fp).startswith("_"): continue
+        for it in _picks_items(read_json(fp)):
+            if isinstance(it, dict) and it.get("meta") and not it.get("confirmed"):
+                out.append({"file": os.path.basename(fp)[:-5], "id": it.get("id"), "meta": it["meta"]})
+    return out
+
+def _write_picks(fp, d):
+    tmp = fp + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f: json.dump(d, f, indent=1, ensure_ascii=False)
+    os.replace(tmp, fp)
+
+POST_PLATFORMS = ("tiktok", "youtube", "instagram", "x")
+
+def save_post_links(day, meta, links, confirm):
+    """Save the four post links for one clip in the Daily post. With confirm=True all four must be pasted: they go into
+    the Posts tab for tracking and the clip leaves the Daily post list."""
+    import posts
+    fp = picks_file(day)
+    if not fp: raise ValueError("that daily post list is gone, refresh the page")
+    d = read_json(fp) or {}
+    it = next((x for x in _picks_items(d) if isinstance(x, dict) and x.get("meta") == meta), None)
+    if not it: raise ValueError("that clip is not in this list")
+    if it.get("confirmed"): raise ValueError("this clip is already confirmed")
+    clean = {}
+    for k in POST_PLATFORMS:
+        v = str((links or {}).get(k) or "").strip()
+        if v and not v.startswith("https://"): raise ValueError(f"{k}: paste the full https:// link")
+        clean[k] = v
+    if not confirm:
+        it["links"] = clean; _write_picks(fp, d); return {"saved": True}
+    missing = [k for k in POST_PLATFORMS if not clean[k]]
+    if missing: raise ValueError("paste all four links first (missing: " + ", ".join(missing) + ")")
+    for k in POST_PLATFORMS:
+        if posts.db_one("SELECT id FROM posts WHERE url=?", (clean[k],)): raise ValueError(f"this {k} link is already tracked")
+    for k in POST_PLATFORMS:
+        r = posts.add({"url": clean[k], "platform": k, "meta": meta, "title": it.get("title") or "",
+                       "clip_id": it.get("id") or "", "streamer": it.get("streamer") or ""}, by="owner")
+        if r.get("error"): raise ValueError(f"{k}: {r['error']}")
+    it["links"] = clean; it["confirmed"] = True; it["confirmed_at"] = iso(now())
+    _write_picks(fp, d)
+    log(None, "INFO", f"daily post confirmed: {it.get('id')} on all four platforms")
+    return {"confirmed": True, "id": it.get("id")}
+
 def picks_zip(day):
     import zipfile, tempfile
-    p = os.path.join(DATA, "daily_picks", day + ".json"); d = read_json(p) or {}
-    items = d if isinstance(d, list) else d.get("items") or []
+    p = picks_file(day)
+    if not p: raise ValueError("that daily post list is gone, refresh the page")
+    items = _picks_items(read_json(p) or {})
     tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False); tmp.close()
     with zipfile.ZipFile(tmp.name, "w", zipfile.ZIP_STORED) as z:
         lines = []
@@ -178,21 +310,24 @@ def picks_zip(day):
             f = os.path.join(DATA_ROOT, it.get("final") or "")
             name = f"{i:02d}_{(it.get('time') or '').replace(':', '')}_{it.get('id', 'video')}.mp4"
             if os.path.isfile(f): z.write(f, name)
+            else: name = name + "  (VIDEO MISSING)"
             c = it.get("captions") or {}
-            lines += [f"#{i} {it.get('time', '')}  {it.get('title', '')}  ({name})", "", "TikTok:", c.get("tiktok", ""), "",
-                      "YouTube title:", c.get("youtube_title", ""), "YouTube description:", c.get("youtube", ""), "", "X:", c.get("x", ""), "", "-" * 40, ""]
+            lines += [f"#{i} {it.get('time', '')}  {it.get('account', '')}  {it.get('title', '')}", f"Video: {name}", "",
+                      "TikTok:", c.get("tiktok", ""), "", "Instagram:", c.get("instagram", c.get("tiktok", "")), "",
+                      "YouTube title:", c.get("youtube_title", ""), "YouTube description:", c.get("youtube", ""), "",
+                      "X:", c.get("x", ""), "", "-" * 40, ""]
         z.writestr("captions.txt", "\n".join(lines))
     return tmp.name
 
 def picks():
     out = []
-    for p in sorted(glob.glob(os.path.join(DATA, "daily_picks", "*.json")), reverse=True)[:14]:
+    for p in [q for q in sorted(glob.glob(os.path.join(DATA, "daily_picks", "*.json")), reverse=True) if not os.path.basename(q).startswith("_")][:14]:
         d = read_json(p)
         try:
             import captions
             items = d if isinstance(d, list) else (d or {}).get("items") or (d or {}).get("picks") or (d or {}).get("videos") or []
             for it in items:
-                if isinstance(it, dict) and not it.get("captions"):
+                if isinstance(it, dict) and (not it.get("captions") or "instagram" not in it["captions"]):
                     rec = dict(it)
                     if it.get("meta"):
                         rec = {**(read_json(os.path.join(DATA_ROOT, it["meta"])) or {}), **it}
@@ -282,7 +417,8 @@ def serve(cfg):
                                        "url": f"http://{ip}:{cfg['dashboard_port']}" if ip else None})
                 if u.path == "/api/insights": return self._json(insights())
                 if u.path == "/api/picks/zip":
-                    day = "".join(ch for ch in q.get("day", "") if ch.isdigit() or ch == "-")
+                    day = q.get("day", "")
+                    if not picks_file(day): return self._json({"error": "that daily post list is gone, refresh the page"}, 404)
                     z = picks_zip(day)
                     try:
                         size = os.path.getsize(z); self.send_response(200)
@@ -397,6 +533,15 @@ def serve(cfg):
                     if (d.get("changes") or {}).get("status") == "duplicate":
                         set_clip(d["meta"], {"status": "rejected"}); return self._json(delete_clip(d["meta"]))
                     return self._json(set_clip(d["meta"], d.get("changes", {})))
+                if self.path == "/api/approve_all":
+                    return self._json(approve_all())
+                if self.path == "/api/random32":
+                    try: return self._json(random32())
+                    except DailyPostPending as e: return self._json({"error": str(e), "blocked": True, "pending": e.pending}, 409)
+                    except ValueError as e: return self._json({"error": str(e)}, 400)
+                if self.path == "/api/picks/links":
+                    try: return self._json(save_post_links(d.get("day"), d.get("meta"), d.get("links"), bool(d.get("confirm"))))
+                    except ValueError as e: return self._json({"error": str(e)}, 400)
                 if self.path == "/api/control":
                     a = d.get("action"); flag = os.path.join(DATA, "pause_backfill")
                     if a == "pause_backfill": open(flag, "w").close()

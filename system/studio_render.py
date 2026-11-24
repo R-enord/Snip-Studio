@@ -33,6 +33,16 @@ Free tools only: ffmpeg (libass), OpenCV (optional; without it "auto" falls back
 """
 import json, math, os, subprocess, sys, tempfile, shutil
 
+try:                                  # the work log is optional: the CLI runs without the worker
+    import worklog as _worklog
+except Exception:
+    _worklog = None
+
+def _log(step, clip="", msg=""):
+    if _worklog:
+        try: _worklog.add(step, clip, msg)
+        except Exception: pass
+
 FFMPEG = os.environ.get("FFMPEG", "ffmpeg")
 FFPROBE = os.environ.get("FFPROBE", "ffprobe")
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -107,7 +117,9 @@ def track(path, t_in, t_out, sample_fps=6.0, prefer="auto"):
         pts.append((t - t_in, last_x))
         t += step
     cap.release()
-    return smooth(pts)
+    out = smooth(pts)
+    _log("track", os.path.basename(path), f"{len(out)} keyframes; faces where found, otherwise the busiest motion")
+    return out
 
 
 def smooth(pts, tau=0.6, deadzone=0.04):
@@ -146,6 +158,9 @@ def x_expr(keys, src_w, crop_w):
     def left(xc):
         return max(0.0, min(src_w - crop_w, xc * src_w - crop_w / 2))
     keys = sorted(keys)
+    if len(keys) > 30:     # ffmpeg cannot parse a deeper nested if(); keep 30 evenly spaced points
+        step = (len(keys) - 1) / 29
+        keys = [keys[round(i * step)] for i in range(30)]
     if len(keys) == 1:
         return f"{left(keys[0][1]):.1f}"
     e = f"{left(keys[-1][1]):.1f}"
@@ -259,6 +274,7 @@ def render(edl, progress=None):
     W, H = edl.get("size", [1080, 1920])
     fps = int(edl.get("fps", 30))
     out = edl["output"]
+    _log("render", os.path.basename(out), f"start: {len(edl['clips'])} clip(s) at {W}x{H}")
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     tmp = tempfile.mkdtemp(prefix="studio_")
     try:
@@ -297,6 +313,7 @@ def render(edl, progress=None):
                 "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", "-t", f"{total:.3f}", out]
         run(cmd)
         if progress: progress(1.0, "exported")
+        _log("render", os.path.basename(out), f"exported {total:.1f}s")
         return {"output": out, "duration": round(total, 2),
                 "keys": [c.get("_keys") for c in edl["clips"]]}
     finally:

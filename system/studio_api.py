@@ -16,6 +16,7 @@ Paths in an EDL are relative to the data folder (as /media/ URLs use them); they
 import json, os, glob, subprocess, sys, threading, time, uuid
 
 from common import DATA_ROOT, DATA, SYSTEM_DIR, CANDIDATES, log
+import worklog
 
 # Extra free libraries live in tools/winlib2 (like the renderer's); installed once in the background if missing.
 WINLIB = os.path.join(DATA_ROOT, "tools", "winlib2")
@@ -208,6 +209,7 @@ def get(path, q):
         p = os.path.join(STUDIO, os.path.basename(q.get("id", "")) + ".edl.json")
         j = json.load(open(p, encoding="utf-8")) if os.path.exists(p) else {"error": "no such project"}
     elif path == "/api/studio/job": j = JOBS.get(q.get("id"), {"error": "no such job"})
+    elif path == "/api/studio/worklog": j = {"items": worklog.recent(120)}
     elif path == "/api/push/key":
         import notify; j = {"key": notify.public_key()}
     if j is None:

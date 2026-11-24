@@ -14,6 +14,7 @@ Usage: python style.py SOURCE.mp4 OUT.mp4 --title "Fighting cops in GTA 6 💀" 
 """
 import argparse, glob, json, os, random, subprocess, tempfile
 from PIL import Image, ImageDraw, ImageFont
+import campaigns
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -22,7 +23,7 @@ MUSIC = os.path.join(ROOT, "brand", "music")
 W, H, CAM_H = 1080, 1920, 640
 TEXT_FONT = os.path.join(FONTS, "Inter-SemiBold.otf")
 EMOJI_FONT = os.path.join(FONTS, "NotoColorEmoji.ttf")
-HANDLE = "@SnipRiotGTA"
+HANDLE = ""  # owner rule 2026-11-23: no watermark
 
 def is_emoji(ch):
     o = ord(ch)
@@ -190,7 +191,8 @@ def crop_expr(box, sw, sh, ow, oh):
     cx, cy = x * sw + cw / 2, y * sh + ch / 2
     return f"crop={int(nw)//2*2}:{int(nh)//2*2}:{int(max(0,cx-nw/2))}:{int(max(0,cy-nh/2))},scale={ow}:{oh}"
 
-def render(src, out, title, credit, cam=None, game=None, start=None, end=None, music="auto", subs=False, ffmpeg="ffmpeg", ffprobe="ffprobe"):
+def render(src, out, title, credit, cam=None, game=None, start=None, end=None, music="auto", subs=False, ffmpeg="ffmpeg", ffprobe="ffprobe",
+           logo=None, logo_max_h=180):
     pr = json.loads(subprocess.run([ffprobe, "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height:format=duration",
                                     "-of", "json", src], capture_output=True, text=True).stdout)
     sw, sh = pr["streams"][0]["width"], pr["streams"][0]["height"]; dur = float(pr["format"]["duration"])
@@ -198,6 +200,12 @@ def render(src, out, title, credit, cam=None, game=None, start=None, end=None, m
     tmp = tempfile.mkdtemp()
     tp, op = os.path.join(tmp, "title.png"), os.path.join(tmp, "ov.png")
     title_png(title, tp); overlay_png(credit, op, bool(cam))
+    lx = ly = None
+    if logo:                                  # campaign logo: its own size, top-right, never over the credit pill
+        lw, lh = Image.open(logo).size
+        ctw = measure(f"🎥 {credit}", ImageFont.truetype(TEXT_FONT, 30), 30)
+        cy = CAM_H - 64 if cam else 150
+        lx, ly = campaigns.logo_position(lw, lh, logo_max_h, (28, cy, 28 + ctw + 28, cy + 46))
     game = game or ([0.2, 0, 0.6, 1] if not cam else [0, 0, 1, 1])
     if cam:
         v = (f"[0:v]split[a][b];[a]{crop_expr(cam, sw, sh, W, CAM_H)}[cam];[b]{crop_expr(game, sw, sh, W, H - CAM_H)}[gm];"
@@ -208,15 +216,20 @@ def render(src, out, title, credit, cam=None, game=None, start=None, end=None, m
     trk = pick_music(out) if music == "auto" else (None if music in (None, "none") else music)
     lines = chunks(transcribe(src, s0, d, ffmpeg), d) if subs else []
     first = 4 if trk else 3; last = "o0"
+    logo_idx = first + len(lines) if logo else None   # input index after the subtitle PNGs
     for k, (a, b, txt) in enumerate(lines):
         sp = os.path.join(tmp, f"s{k}.png"); w_, h_ = sub_png(txt, sp)
         v += f";[{last}][{first + k}:v]overlay={(W - w_) // 2}:{SUB_Y - h_ // 2}:enable='between(t,{a:.2f},{b:.2f})'[o{k + 1}]"; last = f"o{k + 1}"
+    if logo_idx is not None:                  # last layer, so nothing covers the logo
+        v += f";[{last}][{logo_idx}:v]overlay={lx}:{ly}[ologo]"; last = "ologo"
     v += f";[{last}]fps=30,format=yuv420p[v]"
     sub_inputs = sum((["-i", os.path.join(tmp, f"s{k}.png")] for k in range(len(lines))), [])
     fade = f"afade=t=in:d=0.25,afade=t=out:st={max(0, d - 0.4):.2f}:d=0.4"
     if trk:
         inputs += ["-stream_loop", "-1", "-i", trk]
     inputs += sub_inputs
+    if logo:
+        inputs += ["-i", logo]
     if trk:
         a = (f"[0:a]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,asplit[voice][key];"
              f"[3:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,volume=0.16,afade=t=in:d=1,afade=t=out:st={max(0, d - 1.2):.2f}:d=1.2[bed];"
@@ -229,7 +242,7 @@ def render(src, out, title, credit, cam=None, game=None, start=None, end=None, m
            "-movflags", "+faststart", out]
     subprocess.run(cmd, check=True)
     return {"out": out, "music": os.path.basename(trk) if trk else None, "length_s": round(d, 1), "subtitles": len(lines),
-            "transcript": " ".join(x[2] for x in lines)}
+            "transcript": " ".join(x[2] for x in lines), "logo": bool(logo)}
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -238,7 +251,9 @@ if __name__ == "__main__":
     ap.add_argument("--cam", type=fl); ap.add_argument("--game", type=fl)
     ap.add_argument("--start", type=float); ap.add_argument("--end", type=float); ap.add_argument("--music", default="auto")
     ap.add_argument("--subs", action="store_true")
+    ap.add_argument("--logo", help="campaign logo PNG, placed at its own size top-right")
+    ap.add_argument("--logo-max-h", type=int, default=180)
     ap.add_argument("--handle", default=HANDLE, help="watermark text; 'none' for no watermark")
     a = ap.parse_args()
     HANDLE = "" if a.handle.lower() == "none" else a.handle
-    print(json.dumps(render(a.src, a.out, a.title, a.credit, a.cam, a.game, a.start, a.end, a.music, a.subs), ensure_ascii=False))
+    print(json.dumps(render(a.src, a.out, a.title, a.credit, a.cam, a.game, a.start, a.end, a.music, a.subs, logo=a.logo, logo_max_h=a.logo_max_h), ensure_ascii=False))

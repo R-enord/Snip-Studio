@@ -24,7 +24,7 @@ FONTS = os.path.join(ROOT, "brand", "fonts"); MUSIC = os.path.join(ROOT, "brand"
 DATA_ROOT = os.path.expanduser("~/SnipRiot") if os.name == "nt" else os.path.expanduser("~/mnt/SnipRiot")
 VOICES = [os.path.join(DATA_ROOT, "tools", "voices"), os.path.expanduser("~/SnipRiot/tools/voices")]
 W, H, FPS = 1080, 1920, 30
-HANDLE = "@SnipRiotGTA"
+HANDLE = ""  # owner rule 2026-11-23: no watermark
 CAP_Y = 1200                  # caption line centre (lower middle, clear of TikTok/Shorts bottom UI)
 COL = {"*": (60, 255, 90), "^": (255, 214, 0), "~": (255, 60, 60)}
 

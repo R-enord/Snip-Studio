@@ -260,7 +260,7 @@ nav.btabs{display:none}
       <a href="#history"><span class="ico">⏱</span>History</a>
       <a href="#clips"><span class="ico">▦</span>Clip library</a>
       <a href="#studio"><span class="ico">✦</span>Studio editor</a>
-      <a href="#today"><span class="ico">★</span>Today's 8</a>
+      <a href="#today"><span class="ico">★</span>Daily post</a>
       <a href="#posts"><span class="ico">↗</span>Posts &amp; results</a>
       <a href="#tools"><span class="ico">✂</span>Tools</a>
       <a href="#activity"><span class="ico">≡</span>Activity</a>
@@ -300,6 +300,7 @@ async studio(){return `<div id="stu"><div class="s-ph" style="margin-bottom:10px
       <button class="s-stage" data-s="4"><span class="s-n">04 / FINISH</span><b>Caption · mix · export</b><span class="s-d">Big captions, -14 LUFS audio, H.264 1080×1920.</span></button>
     </div>
 
+    <div class="s-panel" id="wlog" style="margin-bottom:14px"><h3 style="margin:0 0 8px">Live work log <span class="s-mono" style="opacity:.6">every step, as it happens</span></h3><div id="wlogList" class="s-mono" style="font-size:12px;line-height:1.6;max-height:280px;overflow:auto">Loading…</div></div>
     <div class="s-grid">
       <div class="s-panel">
         <div class="s-ph"><span class="s-t">Program / <span id="srcName">Source</span></span><span class="s-mono" id="clipInfo">original speed</span></div>
@@ -383,7 +384,7 @@ async overview(){
   for(const s of live)h+=streamCard(s);
   if(G.upcoming.length)h+=`<h3 style="color:var(--muted);margin:22px 0 8px">Coming up</h3><div class="card" style="margin-bottom:14px">`+
     G.upcoming.map(s=>`<div class="row" style="padding:4px 0"><b>${esc(s.name)}</b><span class="pill">Upcoming</span><span style="color:var(--muted)">${esc(s.title||"")}</span></div>`).join("")+`</div>`;
-  if(G.filling.length)h+=`<h3 style="color:var(--muted);margin:22px 0 8px">Finished broadcasts still downloading <small>(most captured first)</small></h3>`+G.filling.map(streamCard).join("");
+  if(G.filling.length)h+=`<div class="row" style="justify-content:space-between;align-items:center;margin:22px 0 8px;flex-wrap:wrap;gap:8px"><h3 style="color:var(--muted);margin:0">Finished broadcasts still downloading</h3>${sortBar()}</div>`+sortFinished(G.filling).map(streamCard).join("");
   // owner 2026-11-21: the "downloading these yourself" list is not shown (his checklist is the Sheet)
   if(G.done.length)h+=`<div class="empty" style="margin-top:16px">${G.done.length} fully captured stream${G.done.length>1?"s":""} moved to <a href="#history">History</a>.</div>`;
   return h},
@@ -391,8 +392,8 @@ async history(){
   const st=ST||await api("/api/status"); const G=groupStreams(st.streams,st.manual); const clipsAll=await api("/api/clips");
   let h=`<div class="top"><div><h1>History</h1><div class="sub">Streams that are fully captured and clipped. Newest first.</div></div></div>`;
   if(!G.done.length)return h+`<div class="empty">Nothing finished yet. A stream moves here once it has ended, every missing part is filled and every block is clipped.</div>`;
-  h+=`<div class="card"><table style="width:100%"><tr><th align="left">Streamer</th><th align="left">Stream</th><th>Length</th><th>Clips</th><th>Finished</th></tr>`;
-  for(const s of G.done){const vid=s.id.split("@")[1];const mine=clipsAll.filter(c=>c.stream_id===s.id||(c.block||"").startsWith(s.id+"|"));
+  h+=`<div class="row" style="justify-content:flex-end;margin-bottom:8px">${sortBar()}</div><div class="card"><table style="width:100%"><tr><th align="left">Streamer</th><th align="left">Stream</th><th>Length</th><th>Clips</th><th>Finished</th></tr>`;
+  for(const s of sortFinished(G.done)){const vid=s.id.split("@")[1];const mine=clipsAll.filter(c=>c.stream_id===s.id||(c.block||"").startsWith(s.id+"|"));
     const n=mine.filter(c=>c.status==="final"||c.status==="ready").length, m=(typeof s.candidates==="number"?s.candidates:mine.length);
     const len=Array.isArray(s.captured)&&s.captured.length?hms(Math.max(...s.captured.map(r=>+r[1]||0))):"–";
     h+=`<tr><td><b>${esc(s.name)}</b></td><td>${esc((s.title||s.id).slice(0,70))}</td><td align="center">${len}</td><td align="center">${n} edited · ${m} moments</td><td align="center">${s.ended?new Date(s.ended).toLocaleDateString():"–"}</td></tr>`}
@@ -409,7 +410,7 @@ async streams(){
    <input id="avU" placeholder="YouTube, Twitch or Kick video link" style="flex:1;min-width:260px"><button class="btn primary" onclick="addVideo()">＋ Add video</button></div>
    <div class="help">Progress shows on the Overview under Finished broadcasts.</div></div>`},
 async clips(){
-  return `<div class="top"><div><h1>Clip library</h1><div class="sub">Edited clips wait in To review. Approve the good ones; each day's 8 are picked from Approved.</div></div>
+  return `<div class="top"><div><h1>Clip library</h1><div class="sub">Edited clips wait in To review. Approve the good ones; each day's 32 are picked from Approved.</div></div>
   <div class="row"><select id="fKind"><option value="all">All</option><option value="streamer">Streamer clips</option><option value="original">Originals</option></select>
   <select id="fStream"><option value="">All streamers</option></select><input id="fDay" type="date"><button class="btn" onclick="loadClips()">Apply</button></div></div>
   <div class="tabs" id="ctabs">${[["approved","Approved"],["review","To review"],["unedited","Unedited"],["rejected","Rejected"]].map(([t,l],i)=>`<span class="tab${i?"":" on"}" data-s="${t}">${l} <b class="tc" id="tc-${t}"></b></span>`).join("")}</div>
@@ -417,20 +418,13 @@ async clips(){
   <div id="clipgrid" class="clips"></div>`},
 async today(){
   const p=await api("/api/picks");
-  let h=`<div class="top"><div><h1>Today's 8</h1><div class="sub">Post each one at its time on YouTube, TikTok and X. Tick the platform once it's up, then paste the link in <a href="#posts">Posts &amp; results</a>.</div></div></div>`;
-  if(!p.length)return h+`<div class="empty">The day's 8 appear here by 06:00 (Lagos time), picked from your Approved clips.<br>Approve clips in the <a href="#clips">Clip library</a>.</div>`;
-  const PL=[["youtube","YouTube"],["tiktok","TikTok"],["x","X"]];
-  for(const day of p.slice(0,3)){const d=day.data||{};const items=Array.isArray(d)?d:(d.items||[]);
-    const done=items.filter(it=>PL.every(([k])=>(it.posted_check||{})[k])).length;
-    h+=`<div class="card" style="margin-bottom:14px"><div class="row"><b>${esc(day.day)}</b><span class="pill">${items.length} videos</span><span class="pill ${done===items.length&&items.length?"good":""}">${done}/${items.length} posted everywhere</span><span class="sp"></span>
-     <a class="btn sm" href="/api/picks/zip?day=${esc(day.day)}">⬇ Download all (zip + captions)</a></div>
-     <div style="margin-top:12px;display:grid;gap:14px">${items.map((it,i)=>{const cap=it.captions||{};window._cap=window._cap||{};window._cap[it.id]=cap;const pc=it.posted_check||{};
-       const all=PL.every(([k])=>pc[k]);
-       return `<div class="p8 ${all?"done8":""}"><video src="${media(it.final)}#t=1" controls preload="metadata" playsinline></video>
-        <div><div class="row"><span class="time">${esc(it.time||"#"+(i+1))}</span><b>${esc(it.title||it.id)}</b><span class="pill">${esc(it.name||"Original")}</span></div>
-        <div class="row" style="margin:8px 0">${PL.map(([k,n])=>`<label class="chk"><input type="checkbox" ${pc[k]?"checked":""} onchange='tick("${esc(it.meta)}","${k}",this.checked)'> ${n}</label>`).join("")}
-         <a class="btn sm primary" href="${media(it.final)}" download="${esc(it.id)}.mp4">⬇ Video</a></div>
-        <div class="row" style="gap:6px">${[["tiktok","TikTok caption"],["youtube_title","YouTube title"],["youtube","YouTube description"],["x","X post"]].map(([k,n])=>`<button class="btn sm" onclick='copyCap("${esc(it.id)}","${k}")'>📋 ${n}</button>`).join("")}</div></div></div>`}).join("")||"<div class='empty'>No items.</div>"}</div></div>`}
+  const PL=[["tiktok","TikTok"],["youtube","YouTube"],["instagram","Instagram"],["x","X"]];
+  let h=`<div class="top"><div><h1>Daily post</h1><div class="sub">Post each clip at its time on TikTok, YouTube, Instagram and X. Paste each post's link in its box. When all four are in, press Confirm and the clip leaves this list.</div></div></div>`;
+  const groups=p.map(day=>{const d=day.data||{};const items=Array.isArray(d)?d:(d.items||[]);return {day:day.day,open:items.filter(it=>!it.confirmed)}}).filter(g=>g.open.length);
+  if(!groups.length)return h+`<div class="empty">Nothing waiting. Fill the Daily post from the <a href="#clips">Clip library</a>: open the Approved tab and press 🎲 Pick 32.</div>`;
+  for(const g of groups){
+    h+=`<div class="card" style="margin-bottom:14px"><div class="row"><b>${esc(g.day)}</b><span class="pill">${g.open.length} waiting</span><span class="sp"></span><a class="btn sm" href="/api/picks/zip?day=${encodeURIComponent(g.day)}">⬇ Download all (videos + captions)</a></div><div class="dpList" style="margin-top:12px;display:grid;gap:14px">${g.open.map((it,i)=>dpCard(g.day,it,i,PL)).join("")}</div></div>`;
+  }
   return h},
 async posts(){
   const [rows,cl]=await Promise.all([api("/api/posts"),api("/api/clips?status=final")]);
@@ -539,6 +533,11 @@ async system(){
 
 function platName(u){u=u||"";return /twitch\.tv/.test(u)?"Twitch":/kick\.com/.test(u)?"Kick":/youtu/.test(u)?"YouTube":"site"}
 function missingOf(s){return (s.gaps||[]).filter(g=>g.status==="open"||g.status==="retry").reduce((a,g)=>a+((+g.end||0)-(+g.start||0)),0)}
+const FSORTS=[["pct","Capture % (most first)"],["pctlow","Capture % (least first)"],["moments","Moments found"],["missing","Time missing"],["name","Stream name A–Z"],["ended","Ended (newest first)"]];
+function sortFinished(list){const k=window._fsort||"pct";const cap=s=>{const m=missingOf(s),c=+s.captured_s||0;return c+m>0?c/(c+m):0};
+  const cmp={pct:(a,b)=>cap(b)-cap(a),pctlow:(a,b)=>cap(a)-cap(b),moments:(a,b)=>(b.candidates||0)-(a.candidates||0),missing:(a,b)=>missingOf(b)-missingOf(a),name:(a,b)=>String(a.name||"").localeCompare(String(b.name||"")),ended:(a,b)=>String(b.ended||"").localeCompare(String(a.ended||""))}[k]||(()=>0);
+  return list.slice().sort(cmp)}
+function sortBar(){const k=window._fsort||"pct";return `<label class="sub" style="display:inline-flex;align-items:center;gap:6px">Sort by <select onchange="window._fsort=this.value;route()">${FSORTS.map(([v,l])=>`<option value="${v}" ${k===v?"selected":""}>${l}</option>`).join("")}</select></label>`}
 function groupStreams(all,manualIds){
   const live=[],upcoming=[],filling=[],done=[],manual=[];const MAN=new Set(manualIds||[]);const liveBy=new Set(all.filter(s=>!s.ended&&s.live_status==="is_live").map(s=>s.id.split("@")[0]));
   const seenUp=new Set();
@@ -663,6 +662,8 @@ function openClip(c){const v=c.final||c.out||c.source;
    <a class="btn ghost" href="${media(v)}" download>Download</a></div></div>`;$("#modal").classList.add("show")}
 
 async function setClip(meta,changes){try{await api("/api/clip",{meta,changes});toast(changes.status==="rejected"?"Rejected":changes.approved===true?"Approved ✓":changes.approved===false?"Moved back to To review":"Updated");if(location.hash.startsWith("#clips"))loadClips();else route()}catch(e){toast(e.message,1)}}
+async function approveAll(){if(!confirm("Approve every clip in To review? Clips from held streams stay here."))return;try{toast("Approving… this can take a moment");const r=await api("/api/approve_all",{});toast(`Approved ${r.approved} clips${r.held?`, ${r.held} held left in review`:""}${r.failed?` · ${r.failed} failed, press again`:""}`,!!r.failed);if(location.hash.startsWith("#clips"))loadClips();else route()}catch(e){toast(e.message,1)}}
+async function pickRandom32(){if(!confirm("Pick 32 random approved clips (16 per account) and write their captions and hashtags?"))return;try{const r=await api("/api/random32",{});toast(`Picked ${r.picked} clips (a1 ${r.per_account.a1}, a2 ${r.per_account.a2}). Saved in Daily post.`)}catch(e){if(e.status===409)alert(e.message);else toast(e.message,1)}}
 async function loadClips(){const tab=$("#ctabs .tab.on").dataset.s, st=$("#fStream").value, dy=$("#fDay").value, kind=$("#fKind").value;
   const keep=c=>(kind==="all"||c.kind===kind)&&(!st||(c.stream_id||"").split("@")[0]===st)&&(!dy||c.day===dy);
   const [rev,app,all]=await Promise.all([api("/api/queue?view=review"),api("/api/queue?view=approved"),api("/api/clips?kind=all")]);
@@ -673,6 +674,8 @@ async function loadClips(){const tab=$("#ctabs .tab.on").dataset.s, st=$("#fStre
   window._rej=rej.filter(keep).map(c=>c.meta);
   $("#cnote").innerHTML=tab==="rejected"&&window._rej.length?`<button class="btn sm danger" onclick="delClips(window._rej)">🗑 Delete all ${window._rej.length} rejected clips permanently</button>`:"";
   if(tab!=="rejected")$("#cnote").textContent=tab==="unedited"?"Cut moments waiting to be edited (subtitles, title, watermark). Each moves to To review when it's done, or to Rejected if it's not usable.":waiting?`✂ ${waiting} cut moments are waiting in Unedited.`:"";
+  if(tab==="review"&&rev.length)$("#cnote").innerHTML+=` <button class="btn sm primary" onclick="approveAll()">✓ Approve all in review</button>`;
+  if(tab==="approved"&&app.length)$("#cnote").innerHTML+=` <button class="btn sm primary" onclick="pickRandom32()">🎲 Pick 32 random + captions</button>`;
   const items=sets[tab].filter(keep);
   $("#cnote").innerHTML+=tab==="review"&&items.length?` <span class="kbd-help">Shortcuts: <b>←/→</b> move · <b>Space</b> play · <b>A</b> approve · <b>R</b> reject · <b>E</b> redo</span>`:"";
   $("#clipgrid").innerHTML=items.map(c=>tab==="review"?revCard(c):tab==="approved"?appCard(c):tab==="unedited"?unCard(c):clipCard(c)).join("")||`<div class="empty" style="grid-column:1/-1">${{review:"Nothing to review right now. Newly edited clips appear here every hour.",approved:"Nothing approved yet. Approve clips in To review.",rejected:"No rejected clips.",unedited:"Everything has been edited ✓",all:"Nothing here yet."}[tab]}</div>`}
@@ -712,7 +715,13 @@ async function route(){const v=(location.hash||"#overview").slice(1).split("?")[
     document.querySelectorAll("#ctabs .tab").forEach(t=>t.onclick=()=>{document.querySelectorAll("#ctabs .tab").forEach(x=>x.classList.remove("on"));t.classList.add("on");loadClips()});loadClips()}
   clearInterval(timer);if(v==="overview")timer=setInterval(async()=>{await refreshHealth();if((location.hash||"#overview")==="#overview")$("#view").innerHTML=await views.overview()},15000)}
 window.SR_STATE=window.SR_STATE||null;
+let WLT=null;
+const wesc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+async function pollWorklog(){const el=document.getElementById('wlogList');if(!el)return;
+  try{const j=await api('/api/studio/worklog');
+    el.innerHTML=(j.items||[]).map(x=>`<div><span style="opacity:.55">${new Date(x.t*1000).toLocaleTimeString()}</span> <b>${wesc(x.step)}</b>${x.clip?` <span style="color:#FF4FA3">${wesc(x.clip)}</span>`:''} ${wesc(x.msg||'')}</div>`).join('')||'Nothing yet.'}catch(e){}}
 function studioMount(){const ROOT=document.getElementById('stu');if(!ROOT)return;
+  pollWorklog();clearInterval(WLT);WLT=setInterval(pollWorklog,2000);
 
 
 const $$=s=>[...document.querySelectorAll(s)];
@@ -726,7 +735,7 @@ async function api(path,body){
   if(DEMO) return demoApi(path,body);
   const r=await fetch(path,body?{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),credentials:"same-origin"}:{credentials:"same-origin"});
   if(r.status===401){location.href="/";throw new Error("Sign in with your PIN first")}
-  const j=await r.json(); if(j&&j.error) throw new Error(j.error); return j}
+  const j=await r.json(); if(j&&j.error){const er=new Error(j.error);er.status=r.status;throw er} return j}
 async function connect(){
   try{ if(location.protocol==="file:") throw 0; const r=await fetch("/api/studio/feed",{credentials:"same-origin"}); if(!r.ok) throw 0; await r.json();
     $("#connDot").classList.add("s-on"); $("#connTxt").textContent="connected to your server"}
@@ -951,6 +960,20 @@ async function enablePush(){
 window.addEventListener("hashchange",route);document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
 refreshHealth().then(route);setInterval(refreshHealth,30000);
 setInterval(()=>document.querySelectorAll(".cd").forEach(e=>{const left=(+e.dataset.at-Date.now())/1000;e.textContent=left>0?hms(left):"now"}),1000);
+function dpCard(day,it,i,PL){
+  window._cap=window._cap||{};window._cap[it.id]=it.captions||{};
+  const L=it.links||{};const ok=PL.every(([k])=>String(L[k]||"").startsWith("https://"));
+  return `<div class="p8" data-meta="${esc(it.meta)}" data-day="${esc(day)}"><video src="${media(it.final)}#t=1" controls preload="metadata" playsinline></video>
+   <div><div class="row"><span class="time">${esc(it.time||"#"+(i+1))}</span><b>${esc(it.title||it.id)}</b><span class="pill">${esc(it.account||"")}</span></div>
+   <div class="row" style="margin:8px 0;gap:6px"><a class="btn sm primary" href="${media(it.final)}" download="${esc(it.id)}.mp4">⬇ Video</a>${[["tiktok","TikTok caption"],["youtube_title","YouTube title"],["youtube","YouTube description"],["instagram","Instagram caption"],["x","X post"]].map(([k,n])=>`<button class="btn sm" onclick='copyCap("${esc(it.id)}","${k}")'>📋 ${n}</button>`).join("")}</div>
+   ${PL.map(([k,n])=>`<div style="margin-top:6px"><label>${n} post link</label><textarea rows="1" data-plat="${k}" placeholder="paste the ${n} link (https://...)" oninput="dpInput(this)" onchange="dpSave(this)" style="width:100%">${esc(L[k]||"")}</textarea></div>`).join("")}
+   <div class="row" style="margin-top:10px"><span class="sub dpHint" style="font-size:12px">${ok?"All four pasted. Press Confirm.":"Paste all four links to confirm."}</span><span class="sp"></span><button class="btn sm primary" ${ok?"":"disabled"} onclick="dpConfirm(this)">✓ Confirm all 4 posted</button></div></div></div>`;
+}
+function dpOk(card){return [...card.querySelectorAll("textarea")].every(t=>t.value.trim().startsWith("https://"))}
+function dpInput(t){const card=t.closest("[data-meta]");const ok=dpOk(card);card.querySelector("button.primary").disabled=!ok;card.querySelector(".dpHint").textContent=ok?"All four pasted. Press Confirm.":"Paste all four links to confirm."}
+function dpLinks(card){const o={};card.querySelectorAll("textarea").forEach(t=>o[t.dataset.plat]=t.value.trim());return o}
+async function dpSave(t){const card=t.closest("[data-meta]");try{await api("/api/picks/links",{day:card.dataset.day,meta:card.dataset.meta,links:dpLinks(card),confirm:false})}catch(e){toast(e.message,1)}}
+async function dpConfirm(btn){const card=btn.closest("[data-meta]");btn.disabled=true;try{await api("/api/picks/links",{day:card.dataset.day,meta:card.dataset.meta,links:dpLinks(card),confirm:true});const list=card.parentElement;card.remove();toast("Confirmed. Clip removed from Daily post.");if(list&&!list.children.length)list.closest(".card").remove();if(!document.querySelector("[data-meta]"))location.reload()}catch(e){btn.disabled=!dpOk(card);toast(e.message,1)}}
 </script>
 </body>
 </html>

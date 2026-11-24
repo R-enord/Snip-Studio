@@ -29,6 +29,11 @@ def keep_alive(name, fn, *a):
     t = threading.Thread(target=wrap, name=name, daemon=True); t.start(); return t
 
 def main():
+    if os.path.exists(os.path.join(DATA, "stop_worker")):   # the owner's switch: nothing records or downloads until this file is removed
+        print("stop_worker flag is set: worker not started, nothing recording or downloading", flush=True)
+        import subprocess
+        subprocess.run(["taskkill", "/F", "/T", "/IM", "yt-dlp.exe"], capture_output=True)
+        sys.exit(0)
     single_instance()
     open(os.path.join(DATA, "worker.pid"), "w").write(str(os.getpid()))
     init_db(); posts.init()
